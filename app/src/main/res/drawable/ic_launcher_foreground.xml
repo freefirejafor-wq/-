@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- White rounded squircle badge (safe zone 22 to 86) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,22 L74,22 A12,12 0 0,1 86,34 L86,74 A12,12 0 0,1 74,86 L34,86 A12,12 0 0,1 22,74 L22,34 A12,12 0 0,1 34,22 Z" />
+    
+    <!-- Striker silhouette head -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M54,28 A4,4 0 1,0 54,36 A4,4 0 1,0 54,28 Z" />
+    <!-- Striker body & kick motion -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M51,36 L57,36 L68,43 L65,46 L56,41 L55,50 L63,58 L60,62 L51,53 L47,60 L42,57 L48,46 L46,41 L39,44 L37,40 Z" />
+    
+    <!-- Soccer ball in air -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M44,48 A3.5,3.5 0 1,0 44,55 A3.5,3.5 0 1,0 44,48 Z" />
+    
+    <!-- Flame trail for ball -->
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M39,71 Q44,69 50,71 Q45,74 39,71 Z" />
+    <path
+        android:fillColor="#FF5722"
+        android:pathData="M37,71 Q42,67 48,70 Q43,73 37,71 Z" />
+
+    <!-- FOOTBALL stylized letters bar -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M30,68 H34 V70 H32 V73 H34 V75 H30 Z
+                          M54,68 H58 V70 H56 V77 H54 Z
+                          M60,68 H64 C65.5,68 66,69 66,70 C66,71 65.5,71.5 64.5,72 C65.5,72.5 66,73 66,74.5 C66,76 65,77 63.5,77 H60 Z
+                          M68,68 H72 L74,77 H72 L71,74 H69 L68,77 H66 Z
+                          M76,68 H78 V75 H82 V77 H76 Z
+                          M83,68 H85 V75 H89 V77 H83 Z" />
+</vector>

@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Football Live TV</string>
+    <string name="app_version">Version 7.3</string>
+    <string name="tagline">Your Home of Live Sports</string>
+    <string name="splash_footer">Thank You for Choosing Football Live TV</string>
+    <string name="nav_favourites">Favourites</string>
+    <string name="nav_sports">Sports</string>
+    <string name="nav_live_events">Live Events</string>
+    <string name="nav_categories">Categories</string>
+    <string name="nav_menu">Menu</string>
+</resources>

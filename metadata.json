@@ -1,0 +1,6 @@
+{
+  "name": "Football Live TV",
+  "description": "Live Football matches, sports streams, real-time fixtures, M3U playlists, and multi-stream player.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

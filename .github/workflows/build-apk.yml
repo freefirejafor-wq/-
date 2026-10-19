@@ -1,0 +1,155 @@
+name: Build & Release Debug APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish a GitHub Release with direct APK download'
+        required: true
+        type: boolean
+        default: true
+      release_tag:
+        description: 'Release tag name (e.g., v7.3)'
+        required: false
+        type: string
+        default: 'v7.3'
+
+permissions:
+  contents: write
+
+jobs:
+  build-debug-apk:
+    name: Build Android Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Prepare Environment & Debug Keystore
+        run: |
+          # Ensure gradlew has executable permissions
+          chmod +x ./gradlew
+
+          # Ensure .env exists for the Secrets Gradle Plugin
+          if [ ! -f .env ]; then
+            if [ -f .env.example ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
+          fi
+
+          # Ensure debug.keystore exists in rootDir (configured in app/build.gradle.kts)
+          if [ ! -f debug.keystore ]; then
+            echo "Creating debug.keystore..."
+            keytool -genkey -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build Debug APK with Gradle
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Prepare APK Package & Checksum
+        id: prepare_apk
+        run: |
+          APK_SOURCE="app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK_SOURCE" ]; then
+            echo "Error: Generated APK not found at $APK_SOURCE"
+            exit 1
+          fi
+
+          VERSION="7.3"
+          OUTPUT_APK="Football-Live-TV-v${VERSION}-debug.apk"
+          cp "$APK_SOURCE" "$OUTPUT_APK"
+
+          SHA256=$(sha256sum "$OUTPUT_APK" | cut -d' ' -f1)
+          echo "Built APK: $OUTPUT_APK"
+          echo "SHA256: $SHA256"
+
+          echo "apk_path=$OUTPUT_APK" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload Debug APK Artifact (Direct Download from Workflow)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Football-Live-TV-Debug-APK
+          path: ${{ steps.prepare_apk.outputs.apk_path }}
+          retention-days: 30
+
+      - name: Determine Release Tag
+        id: release_info
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v${{ steps.prepare_apk.outputs.version }}-b${{ github.run_number }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release & Upload APK
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: "Football Live TV ${{ steps.release_info.outputs.tag }}"
+          body: |
+            ## ⚽ Football Live TV - Android Debug APK Release
+
+            Direct download of the native Android sports live-streaming application.
+
+            ### 🚀 Features Included:
+            - **AndroidX Media3 ExoPlayer**: High-efficiency playback for HLS (`.m3u8`) and MPEG-DASH (`.mpd`) live streams.
+            - **Custom Player Controls**: Aspect ratio toggle, Picture-in-Picture (floating player), seek ±10s, mute, full screen landscape support.
+            - **Multiple-Stream Picker**: Instant source switching between HD, FHD, and adaptive feeds.
+            - **Live Fixtures & Scores**: Schedules formatted in **Asia/Dhaka** timezone with live counters and filterable sports categories.
+            - **M3U Playlist Importer**: Import and stream IPTV channels via URL or raw text.
+            - **5 Navigation Tabs**: Favourites, Sports, Live Events, Categories, and Menu.
+
+            ---
+
+            ### 📦 File Details:
+            - **File Name**: `${{ steps.prepare_apk.outputs.apk_path }}`
+            - **Target Platform**: Android 7.0+ (API 24+)
+            - **SHA-256**: `${{ steps.prepare_apk.outputs.sha256 }}`
+
+            ### 📲 Installation Instructions:
+            1. Download the `.apk` file below directly to your Android device.
+            2. If prompted, enable **"Install unknown apps"** in your Android device settings.
+            3. Tap the file to install and open **Football Live TV**.
+          files: |
+            ${{ steps.prepare_apk.outputs.apk_path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
