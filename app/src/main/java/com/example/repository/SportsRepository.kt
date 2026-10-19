@@ -37,7 +37,7 @@ class SportsRepositoryImpl : SportsRepository {
     private val _fixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     override val fixturesFlow: Flow<List<MatchFixture>> = _fixtures.asStateFlow()
 
-    private val _favorites = MutableStateFlow<Set<String>>(setOf("fixture_hockey_1", "fixture_football_1"))
+    private val _favorites = MutableStateFlow<Set<String>>(setOf("fixture_football_1"))
     override val favoritesFlow: Flow<Set<String>> = _favorites.asStateFlow()
 
     private val _m3uChannels = MutableStateFlow<List<M3uChannel>>(emptyList())
@@ -58,51 +58,6 @@ class SportsRepositoryImpl : SportsRepository {
         val dashTestStream3 = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd"
 
         val demoList = listOf(
-            MatchFixture(
-                id = "fixture_hockey_1",
-                title = "Flames vs Hurricanes",
-                sport = SportType.HOCKEY,
-                league = "HOCKEY | NHL",
-                team1Name = "Flames",
-                team1Abbr = "CGY",
-                team2Name = "Hurricanes",
-                team2Abbr = "CAR",
-                startTimeEpochMs = System.currentTimeMillis() - 3600000,
-                status = MatchStatus.LIVE,
-                liveCounter = "03:26:41",
-                team1Score = "2",
-                team2Score = "1",
-                streams = listOf(
-                    StreamSource(
-                        id = "stream_1",
-                        name = "PREMIER SPORTS FHD",
-                        qualityLabel = "FHD",
-                        streamUrl = hlsTestStream1,
-                        format = StreamFormat.HLS,
-                        bitrateInfo = "1080p 60fps • 5.2 Mbps",
-                        isDemo = true
-                    ),
-                    StreamSource(
-                        id = "stream_2",
-                        name = "HD SERVER",
-                        qualityLabel = "HD",
-                        streamUrl = hlsLiveTestStream2,
-                        format = StreamFormat.HLS,
-                        bitrateInfo = "720p 30fps • 2.8 Mbps",
-                        isDemo = true
-                    ),
-                    StreamSource(
-                        id = "stream_3",
-                        name = "DASH HIGH EFFICIENCY",
-                        qualityLabel = "4K",
-                        streamUrl = dashTestStream3,
-                        format = StreamFormat.DASH,
-                        bitrateInfo = "MPEG-DASH Adaptive",
-                        isDemo = true
-                    )
-                ),
-                isDemo = true
-            ),
             MatchFixture(
                 id = "fixture_cricket_1",
                 title = "OMA vs NEP",
@@ -206,40 +161,6 @@ class SportsRepositoryImpl : SportsRepository {
                 streams = listOf(
                     StreamSource("spl_s1", "SSC 1 HD", "HD", hlsLiveTestStream2, StreamFormat.HLS),
                     StreamSource("spl_s2", "SSC 2 FHD", "FHD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_baseball_1",
-                title = "Rays vs Guardians",
-                sport = SportType.BASEBALL,
-                league = "BASEBALL | MLB",
-                team1Name = "Rays",
-                team1Abbr = "TB",
-                team2Name = "Guardians",
-                team2Abbr = "CLE",
-                startTimeEpochMs = System.currentTimeMillis() + (20 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 20 hours",
-                streams = listOf(
-                    StreamSource("mlb_s1", "BALLY SPORTS HD", "HD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_motorsport_1",
-                title = "MotoGP Grand Prix Qualifying",
-                sport = SportType.MOTORSPORT,
-                league = "MOTORSPORT | MOTOGP",
-                team1Name = "Ducati Lenovo",
-                team1Abbr = "DUC",
-                team2Name = "Red Bull KTM",
-                team2Abbr = "KTM",
-                startTimeEpochMs = System.currentTimeMillis() + (72 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 3 days",
-                streams = listOf(
-                    StreamSource("mgp_s1", "MOTOGP LIVE FEED", "FHD", hlsLiveTestStream2, StreamFormat.HLS)
                 ),
                 isDemo = true
             ),

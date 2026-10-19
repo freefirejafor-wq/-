@@ -1,6 +1,7 @@
 package com.example
 
 import org.junit.Assert.*
+import com.example.model.SportType
 import org.junit.Test
 
 /**
@@ -12,5 +13,13 @@ class ExampleUnitTest {
   @Test
   fun addition_isCorrect() {
     assertEquals(4, 2 + 2)
+  }
+
+  @Test
+  fun sportsListContainsOnlyAllCricketAndFootball() {
+    assertEquals(
+      setOf(SportType.ALL, SportType.CRICKET, SportType.FOOTBALL),
+      SportType.values().toSet()
+    )
   }
 }

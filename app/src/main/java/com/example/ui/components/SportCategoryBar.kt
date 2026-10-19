@@ -158,19 +158,6 @@ private fun SportIconCanvas(
                 drawLine(tint, Offset(w * 0.1f, h * 0.2f), Offset(w * 0.35f, h * 0.4f), strokeWidth = 1.5f)
                 drawLine(tint, Offset(w * 0.05f, h * 0.5f), Offset(w * 0.25f, h * 0.5f), strokeWidth = 1.5f)
             }
-            SportType.BOXING -> {
-                // Boxing glove outline
-                drawCircle(color = tint, radius = w * 0.35f, center = Offset(w * 0.45f, h * 0.45f), style = Stroke(width = 2f))
-                drawCircle(color = tint, radius = w * 0.18f, center = Offset(w * 0.72f, h * 0.55f), style = Stroke(width = 2f))
-            }
-            SportType.BASKETBALL -> {
-                drawCircle(color = tint, radius = w * 0.42f, style = Stroke(width = 2f))
-                drawLine(tint, Offset(w * 0.5f, h * 0.08f), Offset(w * 0.5f, h * 0.92f), strokeWidth = 1.5f)
-                drawLine(tint, Offset(w * 0.08f, h * 0.5f), Offset(w * 0.92f, h * 0.5f), strokeWidth = 1.5f)
-            }
-            else -> {
-                drawCircle(color = tint, radius = w * 0.4f, style = Stroke(width = 2f))
-            }
         }
     }
 }
