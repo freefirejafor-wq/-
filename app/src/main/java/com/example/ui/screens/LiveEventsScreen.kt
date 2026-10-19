@@ -200,7 +200,7 @@ fun LiveEventsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(24.dp)
                 ) {
-                    if (selectedSport == SportType.CRICKET && isRefreshing) {
+                    if (isRefreshing) {
                         CircularProgressIndicator(
                             color = CyanAccent,
                             modifier = Modifier.padding(bottom = 12.dp)
@@ -215,8 +215,8 @@ fun LiveEventsScreen(
                     }
                     Text(
                         text = when {
-                            selectedSport == SportType.CRICKET && isRefreshing -> "Loading cricket matches…"
-                            selectedSport == SportType.CRICKET && refreshError != null -> refreshError
+                            isRefreshing -> "Loading match updates..."
+                            refreshError != null -> refreshError
                             else -> "No matches found in this category"
                         },
                         color = TextSecondary,
@@ -252,11 +252,7 @@ fun LiveEventsScreen(
                         fixture = fixture,
                         isFavorite = favoriteIds.contains(fixture.id),
                         onCardClick = {
-                            if (fixture.streams.size > 1) {
-                                pickerFixture = fixture
-                            } else if (fixture.streams.isNotEmpty()) {
-                                onLaunchStream(fixture, fixture.streams.first())
-                            }
+                            pickerFixture = fixture
                         },
                         onToggleFavorite = { onToggleFavorite(fixture.id) }
                     )

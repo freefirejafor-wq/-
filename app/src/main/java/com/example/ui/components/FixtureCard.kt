@@ -146,7 +146,7 @@ fun FixtureCard(
                     TeamLogoBadge(
                         name = fixture.team1Name,
                         abbr = fixture.team1Abbr,
-                        logoUrl = fixture.team1LogoUrl.takeIf { fixture.sport == SportType.CRICKET }
+                        logoUrl = fixture.team1LogoUrl
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -285,7 +285,7 @@ fun FixtureCard(
                     TeamLogoBadge(
                         name = fixture.team2Name,
                         abbr = fixture.team2Abbr,
-                        logoUrl = fixture.team2LogoUrl.takeIf { fixture.sport == SportType.CRICKET }
+                        logoUrl = fixture.team2LogoUrl
                     )
                 }
             }
@@ -311,7 +311,11 @@ fun FixtureCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (fixture.streams.size > 1) "${fixture.streams.size} Streams" else "Watch Stream",
+                            text = when {
+                            fixture.streams.isEmpty() -> "Match Details"
+                            fixture.streams.size > 1 -> fixture.streams.size.toString() + " Streams"
+                            else -> "Watch Stream"
+                        },
                             color = CyanAccent,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
@@ -376,7 +380,7 @@ fun TeamLogoBadge(name: String, abbr: String, logoUrl: String? = null) {
 private fun cricketScoreLabel(fixture: MatchFixture): String? {
     val first = fixture.team1Score?.let { "${fixture.team1Abbr} $it" }
     val second = fixture.team2Score?.let { "${fixture.team2Abbr} $it" }
-    return listOfNotNull(first, second).joinToString("  •  ").takeIf { it.isNotBlank() }
+    return listOfNotNull(first, second).joinToString("  â¢  ").takeIf { it.isNotBlank() }
 }
 
 @Composable

@@ -5,12 +5,11 @@ import com.example.model.MatchFixture
 import com.example.model.MatchStatus
 import com.example.model.SportType
 import com.example.model.StreamFormat
-import com.example.model.StreamSource
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.Calendar
-import java.util.TimeZone
 
 interface SportsRepository {
     val fixturesFlow: Flow<List<MatchFixture>>
@@ -35,123 +34,19 @@ data class ApiDocumentation(
 class SportsRepositoryImpl : SportsRepository {
 
     private val cricketFeedClient = CricketFeedClient()
+    private val footballFeedClient = FootballFeedClient()
 
     private val _fixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     override val fixturesFlow: Flow<List<MatchFixture>> = _fixtures.asStateFlow()
 
-    private val _favorites = MutableStateFlow<Set<String>>(setOf("fixture_football_1"))
+    private val _favorites = MutableStateFlow<Set<String>>(emptySet())
     override val favoritesFlow: Flow<Set<String>> = _favorites.asStateFlow()
 
     private val _m3uChannels = MutableStateFlow<List<M3uChannel>>(emptyList())
     override val m3uChannelsFlow: Flow<List<M3uChannel>> = _m3uChannels.asStateFlow()
 
     init {
-        loadDemoFixtures()
         loadSampleChannels()
-    }
-
-    private fun loadDemoFixtures() {
-        val dhakaTz = TimeZone.getTimeZone("Asia/Dhaka")
-        val cal = Calendar.getInstance(dhakaTz)
-
-        // Authorized public streaming test assets (Media3 HLS & DASH)
-        val hlsTestStream1 = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
-        val hlsLiveTestStream2 = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8"
-        val dashTestStream3 = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd"
-
-        val demoList = listOf(
-            MatchFixture(
-                id = "fixture_football_1",
-                title = "Punjab vs Mumbai City",
-                sport = SportType.FOOTBALL,
-                league = "FOOTBALL | INDIAN SUPER LEAGUE",
-                team1Name = "Punjab",
-                team1Abbr = "PFC",
-                team2Name = "Mumbai City",
-                team2Abbr = "MCFC",
-                startTimeEpochMs = System.currentTimeMillis() + (10 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 10 hours",
-                streams = listOf(
-                    StreamSource("isl_s1", "JIO SPORTS HD", "HD", hlsLiveTestStream2, StreamFormat.HLS),
-                    StreamSource("isl_s2", "STAR SPORTS 1", "FHD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_football_2",
-                title = "Sabah U19 vs Dortmund U19",
-                sport = SportType.FOOTBALL,
-                league = "FOOTBALL | UEFA YOUTH LEAGUE",
-                team1Name = "Sabah U19",
-                team1Abbr = "SAB",
-                team2Name = "Dortmund U19",
-                team2Abbr = "BVB",
-                startTimeEpochMs = System.currentTimeMillis() + (24 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 1 days",
-                streams = listOf(
-                    StreamSource("uefa_s1", "UEFA TV STREAM", "HD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_football_3",
-                title = "Abha vs Al-Kholood",
-                sport = SportType.FOOTBALL,
-                league = "FOOTBALL | SAUDI PRO LEAGUE",
-                team1Name = "Abha",
-                team1Abbr = "ABH",
-                team2Name = "Al-Kholood",
-                team2Abbr = "KHL",
-                startTimeEpochMs = System.currentTimeMillis() + (11 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 11 hours",
-                streams = listOf(
-                    StreamSource("spl_s1", "SSC 1 HD", "HD", hlsLiveTestStream2, StreamFormat.HLS),
-                    StreamSource("spl_s2", "SSC 2 FHD", "FHD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_finished_1",
-                title = "Arsenal vs Manchester City",
-                sport = SportType.FOOTBALL,
-                league = "FOOTBALL | PREMIER LEAGUE",
-                team1Name = "Arsenal",
-                team1Abbr = "ARS",
-                team2Name = "Man City",
-                team2Abbr = "MCI",
-                startTimeEpochMs = System.currentTimeMillis() - (86400000),
-                status = MatchStatus.FINISHED,
-                team1Score = "2",
-                team2Score = "1",
-                streams = listOf(
-                    StreamSource("replay_1", "MATCH REPLAY HD", "HD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_finished_2",
-                title = "Real Madrid vs Barcelona",
-                sport = SportType.FOOTBALL,
-                league = "FOOTBALL | LA LIGA",
-                team1Name = "Real Madrid",
-                team1Abbr = "RMA",
-                team2Name = "Barcelona",
-                team2Abbr = "BAR",
-                startTimeEpochMs = System.currentTimeMillis() - (172800000),
-                status = MatchStatus.FINISHED,
-                team1Score = "3",
-                team2Score = "2",
-                streams = listOf(
-                    StreamSource("replay_2", "EL CLASICO REPLAY", "FHD", hlsLiveTestStream2, StreamFormat.HLS)
-                ),
-                isDemo = true
-            )
-        )
-
-        _fixtures.value = demoList
     }
 
     private fun loadSampleChannels() {
@@ -195,10 +90,23 @@ class SportsRepositoryImpl : SportsRepository {
         _m3uChannels.value = channels
     }
 
-    override suspend fun refreshFixtures(): Result<Unit> {
-        return cricketFeedClient.fetchFixtures().map { cricketFixtures ->
-            val nonCricketFixtures = _fixtures.value.filter { it.sport != SportType.CRICKET }
-            _fixtures.value = nonCricketFixtures + cricketFixtures
+    override suspend fun refreshFixtures(): Result<Unit> = coroutineScope {
+        val cricketRequest = async { cricketFeedClient.fetchFixtures() }
+        val footballRequest = async { footballFeedClient.fetchFixtures() }
+        val cricketResult = cricketRequest.await()
+        val footballResult = footballRequest.await()
+
+        val existing = _fixtures.value
+        val cricketFixtures = cricketResult.getOrNull()
+            ?: existing.filter { it.sport == SportType.CRICKET }
+        val footballFixtures = footballResult.getOrNull()
+            ?: existing.filter { it.sport == SportType.FOOTBALL }
+        _fixtures.value = cricketFixtures + footballFixtures
+
+        if (cricketResult.isSuccess && footballResult.isSuccess) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IOException("One or more sports feeds are temporarily unavailable."))
         }
     }
 

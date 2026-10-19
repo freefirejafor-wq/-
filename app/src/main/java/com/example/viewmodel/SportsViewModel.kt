@@ -103,7 +103,7 @@ class SportsViewModel(
             try {
                 val result = repository.refreshFixtures()
                 _refreshError.value = if (result.isFailure) {
-                    "Cricket matches could not be refreshed. Check your connection and try again."
+                    "Some match updates could not be refreshed. Check your connection and try again."
                 } else {
                     null
                 }

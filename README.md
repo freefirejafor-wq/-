@@ -1,10 +1,10 @@
-# Football Live TV ⚽📺
+# Football Live TV â½ðº
 
 A native Android sports live-streaming application built with **Kotlin**, **Jetpack Compose**, **Material 3**, and **AndroidX Media3 ExoPlayer**.
 
 ---
 
-## ⚡ Direct APK Download via GitHub Actions & Releases
+## â¡ Direct APK Download via GitHub Actions & Releases
 
 This repository includes a pre-configured **GitHub Actions CI/CD pipeline** located at [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml) that automatically builds the debug APK and makes it available for immediate direct download.
 
@@ -25,11 +25,11 @@ This repository includes a pre-configured **GitHub Actions CI/CD pipeline** loca
 2. In the left sidebar, click **Build & Release Debug APK**.
 3. Click the **Run workflow** button on the right.
 4. Ensure *Publish a GitHub Release* is checked, choose your branch (e.g. `main`), and click **Run workflow**.
-5. Once the job completes (usually ~2–3 minutes), the new APK will be uploaded to Releases and Artifacts.
+5. Once the job completes (usually ~2â3 minutes), the new APK will be uploaded to Releases and Artifacts.
 
 ---
 
-## 🛠 Local Build Instructions
+## ð  Local Build Instructions
 
 If you wish to build the debug APK locally on your machine:
 
@@ -53,11 +53,13 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
-## 📱 Features
+## ð± Features
 
+- **Cricket match updates**: International Test, ODI, and T20I fixtures limited to yesterday, today, and tomorrow in Asia/Dhaka.
+- **Football match updates**: Club and international scores from ESPN's global soccer scoreboard, using the same Dhaka date window.
 - **Built-in Media3 ExoPlayer**: Native player supporting HLS (`.m3u8`), MPEG-DASH (`.mpd`), and progressive streams.
 - **Multiple-Stream Picker**: Instant source switching between FHD, HD, and adaptive servers with quality badges.
 - **Asia/Dhaka Fixture Schedules**: Match timings and countdown timers displayed in `Asia/Dhaka` (GMT+6) timezone.
 - **M3U Playlist Importer**: Import and stream IPTV channels via URL or raw text with channel grouping and search.
-- **Custom Player Controls**: Aspect ratio cycling (Fit / Zoom / Fill), Picture-in-Picture (floating player), seek ±10s, mute, full screen landscape support.
+- **Custom Player Controls**: Aspect ratio cycling (Fit / Zoom / Fill), Picture-in-Picture (floating player), seek Â±10s, mute, full screen landscape support.
 - **Bottom Navigation**: Favourites, Sports, Live Events, Categories, and Menu.

@@ -107,6 +107,19 @@ fun StreamPickerModal(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // Feeds provide match data, not broadcast URLs. Keep the picker honest when none are attached.
+                if (fixture.streams.isEmpty()) {
+                    Text(
+                        text = "No stream links are attached to this match yet.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    )
+                }
+
                 // List of stream options
                 fixture.streams.forEach { stream ->
                     val streamShape = RoundedCornerShape(14.dp)

@@ -19,6 +19,10 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.example.model.MatchFixture
 import com.example.model.StreamSource
 import com.example.ui.components.FixtureCard
+import com.example.ui.components.StreamPickerModal
 import com.example.ui.theme.NavyBackground
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
@@ -41,6 +46,18 @@ fun FavouritesScreen(
     onToggleFavorite: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var pickerFixture by remember { mutableStateOf<MatchFixture?>(null) }
+    pickerFixture?.let { selectedFixture ->
+        StreamPickerModal(
+            fixture = selectedFixture,
+            onStreamSelected = { stream ->
+                pickerFixture = null
+                onFixtureClick(selectedFixture, stream)
+            },
+            onDismiss = { pickerFixture = null }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -107,11 +124,7 @@ fun FavouritesScreen(
                     FixtureCard(
                         fixture = fixture,
                         isFavorite = true,
-                        onCardClick = {
-                            if (fixture.streams.isNotEmpty()) {
-                                onFixtureClick(fixture, fixture.streams.first())
-                            }
-                        },
+                        onCardClick = { pickerFixture = fixture },
                         onToggleFavorite = { onToggleFavorite(fixture.id) }
                     )
                 }

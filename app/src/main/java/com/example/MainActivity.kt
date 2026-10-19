@@ -17,10 +17,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.ui.components.NavTab
 import com.example.ui.components.SportsBottomNavBar
+import com.example.ui.components.StreamPickerModal
+import com.example.model.MatchFixture
 import com.example.ui.screens.CategoriesScreen
 import com.example.ui.screens.FavouritesScreen
 import com.example.ui.screens.LiveEventsScreen
@@ -64,6 +69,7 @@ fun MainContent(viewModel: SportsViewModel) {
 
     val activeFixture by viewModel.activeFixture.collectAsState()
     val activeStream by viewModel.activeStream.collectAsState()
+    var relatedPickerFixture by remember { mutableStateOf<MatchFixture?>(null) }
 
     fun openTelegram() {
         try {
@@ -91,9 +97,7 @@ fun MainContent(viewModel: SportsViewModel) {
                     onToggleFavorite = { viewModel.toggleFavorite(it) },
                     onBackClick = { viewModel.closePlayer() },
                     onFixtureClick = { newFixture ->
-                        if (newFixture.streams.isNotEmpty()) {
-                            viewModel.openPlayer(newFixture, newFixture.streams.first())
-                        }
+                        relatedPickerFixture = newFixture
                     }
                 )
             } else {
@@ -186,4 +190,15 @@ fun MainContent(viewModel: SportsViewModel) {
             }
         }
     }
+    relatedPickerFixture?.let { selectedFixture ->
+        StreamPickerModal(
+            fixture = selectedFixture,
+            onStreamSelected = { stream ->
+                relatedPickerFixture = null
+                viewModel.openPlayer(selectedFixture, stream)
+            },
+            onDismiss = { relatedPickerFixture = null }
+        )
+    }
+
 }
