@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.MatchFixture
 import com.example.model.MatchStatus
+import com.example.model.SportType
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.LiveRed
 import com.example.ui.theme.NavyCard
@@ -52,6 +55,7 @@ import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.util.DateTimeUtil
+import coil.compose.AsyncImage
 
 @Composable
 fun FixtureCard(
@@ -139,7 +143,11 @@ fun FixtureCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Start
                 ) {
-                    TeamLogoBadge(name = fixture.team1Name, abbr = fixture.team1Abbr)
+                    TeamLogoBadge(
+                        name = fixture.team1Name,
+                        abbr = fixture.team1Abbr,
+                        logoUrl = fixture.team1LogoUrl.takeIf { fixture.sport == SportType.CRICKET }
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = fixture.team1Name,
@@ -198,7 +206,11 @@ fun FixtureCard(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            if (fixture.team1Score != null && fixture.team2Score != null) {
+                            if (
+                                fixture.sport != SportType.CRICKET &&
+                                fixture.team1Score != null &&
+                                fixture.team2Score != null
+                            ) {
                                 Text(
                                     text = "${fixture.team1Score} - ${fixture.team2Score}",
                                     color = CyanAccent,
@@ -238,15 +250,17 @@ fun FixtureCard(
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            val score = if (fixture.team1Score != null && fixture.team2Score != null) {
-                                "${fixture.team1Score} - ${fixture.team2Score}"
-                            } else "Completed"
-                            Text(
-                                text = score,
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            if (fixture.sport != SportType.CRICKET) {
+                                val score = if (fixture.team1Score != null && fixture.team2Score != null) {
+                                    "${fixture.team1Score} - ${fixture.team2Score}"
+                                } else "Completed"
+                                Text(
+                                    text = score,
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                         else -> {}
                     }
@@ -268,7 +282,11 @@ fun FixtureCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    TeamLogoBadge(name = fixture.team2Name, abbr = fixture.team2Abbr)
+                    TeamLogoBadge(
+                        name = fixture.team2Name,
+                        abbr = fixture.team2Abbr,
+                        logoUrl = fixture.team2LogoUrl.takeIf { fixture.sport == SportType.CRICKET }
+                    )
                 }
             }
 
@@ -280,32 +298,37 @@ fun FixtureCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Stream availability badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = CyanAccent,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (fixture.streams.size > 1) "${fixture.streams.size} Streams" else "Watch Stream",
-                        color = CyanAccent,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                if (fixture.sport != SportType.CRICKET) {
+                    // Stream availability badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = CyanAccent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (fixture.streams.size > 1) "${fixture.streams.size} Streams" else "Watch Stream",
+                            color = CyanAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
 
-                // Demo / Authorized stream label
-                if (fixture.isDemo) {
-                    Text(
-                        text = "Demo Stream (Test Feed)",
-                        color = TextMuted,
-                        fontSize = 10.sp
-                    )
+                    // Demo / Authorized stream label
+                    if (fixture.isDemo) {
+                        Text(
+                            text = "Demo Stream (Test Feed)",
+                            color = TextMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                    cricketScoreLabel(fixture)?.let { CricketScoreChip(it) }
                 }
             }
         }
@@ -313,7 +336,7 @@ fun FixtureCard(
 }
 
 @Composable
-fun TeamLogoBadge(name: String, abbr: String) {
+fun TeamLogoBadge(name: String, abbr: String, logoUrl: String? = null) {
     // Generate an attractive visual crest / emblem based on the team initials
     val initials = if (abbr.isNotBlank()) abbr.take(3) else name.take(2).uppercase()
     val bgColors = listOf(
@@ -336,6 +359,41 @@ fun TeamLogoBadge(name: String, abbr: String) {
             color = Color.White,
             fontSize = 11.sp,
             fontWeight = FontWeight.Black
+        )
+        if (!logoUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = logoUrl,
+                contentDescription = "$name flag",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+            )
+        }
+    }
+}
+
+private fun cricketScoreLabel(fixture: MatchFixture): String? {
+    val first = fixture.team1Score?.let { "${fixture.team1Abbr} $it" }
+    val second = fixture.team2Score?.let { "${fixture.team2Abbr} $it" }
+    return listOfNotNull(first, second).joinToString("  •  ").takeIf { it.isNotBlank() }
+}
+
+@Composable
+private fun CricketScoreChip(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(7.dp))
+            .background(Color(0xFF0F2636))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            color = CyanAccent,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

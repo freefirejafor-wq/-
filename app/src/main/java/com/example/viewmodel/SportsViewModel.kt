@@ -39,6 +39,12 @@ class SportsViewModel(
     private val _selectedStatus = MutableStateFlow(MatchStatus.ALL)
     val selectedStatus: StateFlow<MatchStatus> = _selectedStatus.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _refreshError = MutableStateFlow<String?>(null)
+    val refreshError: StateFlow<String?> = _refreshError.asStateFlow()
+
     private val _activeFixture = MutableStateFlow<MatchFixture?>(null)
     val activeFixture: StateFlow<MatchFixture?> = _activeFixture.asStateFlow()
 
@@ -53,6 +59,10 @@ class SportsViewModel(
 
     val m3uChannels: StateFlow<List<M3uChannel>> = repository.m3uChannelsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        refresh()
+    }
 
     fun finishSplash() {
         _appScreen.value = AppScreen.Main
@@ -87,8 +97,19 @@ class SportsViewModel(
     }
 
     fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
         viewModelScope.launch {
-            repository.refreshFixtures()
+            try {
+                val result = repository.refreshFixtures()
+                _refreshError.value = if (result.isFailure) {
+                    "Cricket matches could not be refreshed. Check your connection and try again."
+                } else {
+                    null
+                }
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

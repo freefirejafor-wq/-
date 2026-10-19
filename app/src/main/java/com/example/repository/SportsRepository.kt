@@ -34,6 +34,8 @@ data class ApiDocumentation(
 
 class SportsRepositoryImpl : SportsRepository {
 
+    private val cricketFeedClient = CricketFeedClient()
+
     private val _fixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     override val fixturesFlow: Flow<List<MatchFixture>> = _fixtures.asStateFlow()
 
@@ -58,59 +60,6 @@ class SportsRepositoryImpl : SportsRepository {
         val dashTestStream3 = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd"
 
         val demoList = listOf(
-            MatchFixture(
-                id = "fixture_cricket_1",
-                title = "OMA vs NEP",
-                sport = SportType.CRICKET,
-                league = "CRICKET | ICC CWC LEAGUE 2",
-                team1Name = "OMA",
-                team1Abbr = "OMA",
-                team2Name = "NEP",
-                team2Abbr = "NEP",
-                startTimeEpochMs = System.currentTimeMillis() + (2 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 2 hours",
-                streams = listOf(
-                    StreamSource("cricket_s1", "SERVER 1 FHD", "FHD", hlsLiveTestStream2, StreamFormat.HLS),
-                    StreamSource("cricket_s2", "SERVER 2 SD", "SD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_cricket_2",
-                title = "SA vs AUS",
-                sport = SportType.CRICKET,
-                league = "CRICKET | ICC WORLD TEST CHAMPIONSHIP",
-                team1Name = "SA",
-                team1Abbr = "SA",
-                team2Name = "AUS",
-                team2Abbr = "AUS",
-                startTimeEpochMs = System.currentTimeMillis() + (4 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 4 hours",
-                streams = listOf(
-                    StreamSource("sa_s1", "WILLOW HD", "HD", hlsTestStream1, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
-            MatchFixture(
-                id = "fixture_cricket_3",
-                title = "AFG vs ZIM",
-                sport = SportType.CRICKET,
-                league = "CRICKET | ODI TRI-SERIES IN UNITED ARAB EMIRATES",
-                team1Name = "AFG",
-                team1Abbr = "AFG",
-                team2Name = "ZIM",
-                team2Abbr = "ZIM",
-                startTimeEpochMs = System.currentTimeMillis() + (8 * 3600000),
-                status = MatchStatus.UPCOMING,
-                startsInText = "Starts in 8 hours",
-                streams = listOf(
-                    StreamSource("afg_s1", "SPORTS 1 HD", "HD", hlsTestStream1, StreamFormat.HLS),
-                    StreamSource("afg_s2", "SPORTS 2 FHD", "FHD", hlsLiveTestStream2, StreamFormat.HLS)
-                ),
-                isDemo = true
-            ),
             MatchFixture(
                 id = "fixture_football_1",
                 title = "Punjab vs Mumbai City",
@@ -247,8 +196,10 @@ class SportsRepositoryImpl : SportsRepository {
     }
 
     override suspend fun refreshFixtures(): Result<Unit> {
-        // Simulates fetching latest fixtures or pulling from external Sports API
-        return Result.success(Unit)
+        return cricketFeedClient.fetchFixtures().map { cricketFixtures ->
+            val nonCricketFixtures = _fixtures.value.filter { it.sport != SportType.CRICKET }
+            _fixtures.value = nonCricketFixtures + cricketFixtures
+        }
     }
 
     override suspend fun toggleFavorite(fixtureId: String) {

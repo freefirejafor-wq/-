@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +68,8 @@ fun LiveEventsScreen(
     onToggleFavorite: (String) -> Unit,
     onLaunchStream: (MatchFixture, StreamSource) -> Unit,
     onRefresh: () -> Unit,
+    isRefreshing: Boolean = false,
+    refreshError: String? = null,
     onTelegramClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -174,7 +177,8 @@ fun LiveEventsScreen(
         // Horizontal Sports Category Icons
         SportCategoryBar(
             selectedSport = selectedSport,
-            onSportSelected = onSportSelected
+            onSportSelected = onSportSelected,
+            cricketMatchCount = fixtures.count { it.sport == SportType.CRICKET }
         )
 
         // Status Filter Pills Bar
@@ -196,14 +200,25 @@ fun LiveEventsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(24.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Podcasts,
-                        contentDescription = null,
-                        tint = TextMuted,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
+                    if (selectedSport == SportType.CRICKET && isRefreshing) {
+                        CircularProgressIndicator(
+                            color = CyanAccent,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Podcasts,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
                     Text(
-                        text = "No matches found in this category",
+                        text = when {
+                            selectedSport == SportType.CRICKET && isRefreshing -> "Loading cricket matches…"
+                            selectedSport == SportType.CRICKET && refreshError != null -> refreshError
+                            else -> "No matches found in this category"
+                        },
                         color = TextSecondary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium

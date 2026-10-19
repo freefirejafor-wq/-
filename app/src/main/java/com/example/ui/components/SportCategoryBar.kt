@@ -51,6 +51,7 @@ import com.example.ui.theme.TextSecondary
 fun SportCategoryBar(
     selectedSport: SportType,
     onSportSelected: (SportType) -> Unit,
+    cricketMatchCount: Int = SportType.CRICKET.badgeCount,
     modifier: Modifier = Modifier
 ) {
     LazyRow(
@@ -63,6 +64,7 @@ fun SportCategoryBar(
             SportCategoryItem(
                 sport = sport,
                 isSelected = isSelected,
+                badgeCount = if (sport == SportType.CRICKET) cricketMatchCount else sport.badgeCount,
                 onClick = { onSportSelected(sport) }
             )
         }
@@ -73,6 +75,7 @@ fun SportCategoryBar(
 fun SportCategoryItem(
     sport: SportType,
     isSelected: Boolean,
+    badgeCount: Int = sport.badgeCount,
     onClick: () -> Unit
 ) {
     val borderColor = if (isSelected) CyanAccent else NavyCardBorder
@@ -97,7 +100,7 @@ fun SportCategoryItem(
                 .padding(horizontal = 4.dp, vertical = 1.dp)
         ) {
             Text(
-                text = "${sport.badgeCount}",
+                text = "$badgeCount",
                 color = Color.White,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold

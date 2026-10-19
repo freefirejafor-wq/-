@@ -59,6 +59,8 @@ fun MainContent(viewModel: SportsViewModel) {
     val fixtures by viewModel.fixtures.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val m3uChannels by viewModel.m3uChannels.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val refreshError by viewModel.refreshError.collectAsState()
 
     val activeFixture by viewModel.activeFixture.collectAsState()
     val activeStream by viewModel.activeStream.collectAsState()
@@ -133,6 +135,8 @@ fun MainContent(viewModel: SportsViewModel) {
                                         viewModel.openPlayer(fixture, stream)
                                     },
                                     onRefresh = { viewModel.refresh() },
+                                    isRefreshing = isRefreshing,
+                                    refreshError = refreshError,
                                     onTelegramClick = { openTelegram() }
                                 )
                             }
