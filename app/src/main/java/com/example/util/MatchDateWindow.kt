@@ -9,14 +9,14 @@ import java.util.TimeZone
 object MatchDateWindow {
     private const val DHAKA_TIME_ZONE = "Asia/Dhaka"
 
-    /** Includes the two preceding, current, and two following calendar days in Asia/Dhaka. */
+    /** Includes yesterday, today, and tomorrow as Asia/Dhaka calendar days. */
     fun contains(timestampMs: Long, nowMs: Long = System.currentTimeMillis()): Boolean {
         val todayStart = dhakaDayStart(nowMs)
         val start = (todayStart.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_YEAR, -2)
+            add(Calendar.DAY_OF_YEAR, -1)
         }.timeInMillis
         val endExclusive = (todayStart.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_YEAR, 3)
+            add(Calendar.DAY_OF_YEAR, 2)
         }.timeInMillis
         return timestampMs >= start && timestampMs < endExclusive
     }
@@ -27,7 +27,7 @@ object MatchDateWindow {
         val formatter = SimpleDateFormat("yyyyMMdd", Locale.US).apply {
             timeZone = TimeZone.getTimeZone(DHAKA_TIME_ZONE)
         }
-        return (-3..2).map { offset ->
+        return (-2..1).map { offset ->
             val day = (todayStart.clone() as Calendar).apply {
                 add(Calendar.DAY_OF_YEAR, offset)
             }

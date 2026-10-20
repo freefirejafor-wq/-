@@ -31,34 +31,39 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun matchWindowIncludesTwoDaysBeforeAndAfterInDhaka() {
+  fun matchWindowIncludesYesterdayTodayAndTomorrowInDhaka() {
     val now = utc("2026-10-19T06:00:00Z")
-    assertFalse(MatchDateWindow.contains(utc("2026-10-16T17:59:59Z"), now))
-    assertTrue(MatchDateWindow.contains(utc("2026-10-16T18:00:00Z"), now))
-    assertTrue(MatchDateWindow.contains(utc("2026-10-21T17:59:59Z"), now))
-    assertFalse(MatchDateWindow.contains(utc("2026-10-21T18:00:00Z"), now))
+    assertFalse(MatchDateWindow.contains(utc("2026-10-17T17:59:59Z"), now))
+    assertTrue(MatchDateWindow.contains(utc("2026-10-17T18:00:00Z"), now))
+    assertTrue(MatchDateWindow.contains(utc("2026-10-20T17:59:59Z"), now))
+    assertFalse(MatchDateWindow.contains(utc("2026-10-20T18:00:00Z"), now))
   }
 
   @Test
-  fun espnDatesCoverTheDhakaWindowAndUtcBoundary() {
+  fun espnDatesCoverTheThreeDayDhakaWindowAndUtcBoundary() {
     val now = utc("2026-10-19T06:00:00Z")
     assertEquals(
-      listOf("20261016", "20261017", "20261018", "20261019", "20261020", "20261021"),
+      listOf("20261017", "20261018", "20261019", "20261020"),
       MatchDateWindow.espnQueryDates(now)
     )
   }
 
   @Test
-  fun cricketLiveFeedStatusUsesStartTimeToSeparateUpcomingFromLive() {
+  fun cricketProviderStatusUsesResultAndScheduledTime() {
     val now = utc("2026-10-20T01:00:00Z")
-    assertEquals(
-      MatchStatus.UPCOMING,
-      cricketStatusFromCode(1, startTimeEpochMs = utc("2026-10-20T13:30:00Z"), nowMs = now)
-    )
-    assertEquals(
-      MatchStatus.LIVE,
-      cricketStatusFromCode(1, startTimeEpochMs = utc("2026-10-20T00:59:59Z"), nowMs = now)
-    )
+    val pastStart = utc("2026-10-19T05:30:00Z")
+    val futureStart = utc("2026-10-20T13:30:00Z")
+
+    assertEquals(MatchStatus.UPCOMING, cricketStatusFromCode(0, startTimeEpochMs = futureStart, nowMs = now))
+    assertEquals(MatchStatus.FINISHED, cricketStatusFromCode(0, startTimeEpochMs = pastStart, hasFinalResult = true, nowMs = now))
+    assertNull(cricketStatusFromCode(0, MatchStatus.UPCOMING, pastStart, nowMs = now))
+    assertEquals(MatchStatus.UPCOMING, cricketStatusFromCode(1, startTimeEpochMs = futureStart, nowMs = now))
+    assertEquals(MatchStatus.LIVE, cricketStatusFromCode(1, startTimeEpochMs = pastStart, nowMs = now))
+    assertEquals(MatchStatus.LIVE, cricketStatusFromCode(1))
+    assertEquals(MatchStatus.FINISHED, cricketStatusFromCode(2))
+    assertEquals(MatchStatus.FINISHED, cricketStatusFromCode(4))
+    assertEquals(MatchStatus.UPCOMING, cricketStatusFromCode(-1, MatchStatus.UPCOMING))
+    assertNull(cricketStatusFromCode(-1))
   }
 
   @Test

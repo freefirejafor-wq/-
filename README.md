@@ -55,8 +55,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## ð± Features
 
-- **Cricket match updates**: International Test, ODI, and T20I fixtures limited to the previous two, current, and next two Asia/Dhaka calendar days.
-- **Football match updates**: Club and international scores from ESPN's global soccer scoreboard, using the same five-day Dhaka calendar window.
+- **Cricket match updates**: International Test, ODI, and T20I fixtures limited to yesterday, today, and tomorrow in Asia/Dhaka.
+- **Football match updates**: Club and international scores from ESPN's global soccer scoreboard, using the same three-day Dhaka calendar window.
 - **Built-in Media3 ExoPlayer**: Native player supporting HLS (`.m3u8`), MPEG-DASH (`.mpd`), and progressive streams.
 - **Multiple-Stream Picker**: Instant source switching between FHD, HD, and adaptive servers with quality badges.
 - **Asia/Dhaka Fixture Schedules**: Match timings and countdown timers displayed in `Asia/Dhaka` (GMT+6) timezone.

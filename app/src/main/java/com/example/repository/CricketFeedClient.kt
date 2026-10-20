@@ -103,6 +103,7 @@ internal class CricketFeedClient(
                             val startTime = matchTimeMs(detail) ?: matchTimeMs(candidate.row)
                             val matchStatus = statusFromDetail(
                                 detail,
+                                candidate.row,
                                 fallback = null,
                                 startTimeEpochMs = startTime
                             ) ?: return@withPermit null
@@ -167,6 +168,7 @@ internal class CricketFeedClient(
                             val startTime = matchTimeMs(detail) ?: matchTimeMs(candidate.row)
                             val actualStatus = statusFromDetail(
                                 detail,
+                                candidate.row,
                                 fallback = status,
                                 startTimeEpochMs = startTime
                             ) ?: return@withPermit null
@@ -181,11 +183,18 @@ internal class CricketFeedClient(
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (_: Exception) {
+                            val fallbackStartTime = matchTimeMs(candidate.row)
+                            val fallbackStatus = cricketStatusFromCode(
+                                code = -1,
+                                fallback = status,
+                                startTimeEpochMs = fallbackStartTime,
+                                hasFinalResult = hasFinalMatchResult(null, candidate.row)
+                            ) ?: return@withPermit null
                             val fallbackFixture = parseFixture(
                                 candidate.id,
                                 candidate.row,
                                 null,
-                                status,
+                                fallbackStatus,
                                 teamNames
                             )
                             FetchedFixture(fallbackFixture, emptyMap())
@@ -258,14 +267,22 @@ internal class CricketFeedClient(
     /** The provider's match-detail status is authoritative; list endpoints mix match states. */
     private fun statusFromDetail(
         detail: JSONObject?,
+        row: JSONObject?,
         fallback: MatchStatus?,
         startTimeEpochMs: Long?
     ): MatchStatus? {
         return cricketStatusFromCode(
             detail?.optInt("ms", -1) ?: -1,
             fallback,
-            startTimeEpochMs
+            startTimeEpochMs,
+            hasFinalResult = hasFinalMatchResult(detail, row)
         )
+    }
+
+    private fun hasFinalMatchResult(detail: JSONObject?, row: JSONObject?): Boolean {
+        val detailResult = firstText(detail, "B")
+        val listResult = firstText(row, "result", "res")
+        return listOfNotNull(detailResult, listResult).any(FINAL_RESULT_PATTERN::containsMatchIn)
     }
 
     private fun isInternationalFormat(format: String?): Boolean {
@@ -474,6 +491,10 @@ internal class CricketFeedClient(
             "\\b(?:T20I|WT20I|ODI|WODI|TEST)\\b",
             Pattern.CASE_INSENSITIVE
         )
+        private val FINAL_RESULT_PATTERN = Regex(
+            "\\b(?:won|drawn?|no result|abandon(?:ed)?|tied|super\\s*over|completed|finished)\\b",
+            RegexOption.IGNORE_CASE
+        )
         private val IMAGE_TAG_PATTERN = Pattern.compile("<img\\b[^>]*>", Pattern.CASE_INSENSITIVE)
         private val TEAM_IMAGE_PATTERN = Pattern.compile("/Teams/([^/\"'?]+)\\.png", Pattern.CASE_INSENSITIVE)
         private val TEAM_ALT_PATTERN = Pattern.compile("\\balt=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE)
@@ -486,16 +507,26 @@ internal fun cricketStatusFromCode(
     code: Int,
     fallback: MatchStatus? = null,
     startTimeEpochMs: Long? = null,
+    hasFinalResult: Boolean = false,
     nowMs: Long = System.currentTimeMillis()
-): MatchStatus? = when {
-    code == 0 -> MatchStatus.UPCOMING
-    // The provider also uses ms=1 for scheduled fixtures in its live-feed response.
-    // A fixture cannot be live before its reported start time.
-    code == 1 -> if (startTimeEpochMs != null && startTimeEpochMs > nowMs) {
-        MatchStatus.UPCOMING
-    } else {
-        MatchStatus.LIVE
+): MatchStatus? {
+    if (hasFinalResult) return MatchStatus.FINISHED
+    return when {
+        code == 0 -> when {
+            startTimeEpochMs == null -> fallback ?: MatchStatus.UPCOMING
+            startTimeEpochMs > nowMs -> MatchStatus.UPCOMING
+            fallback == MatchStatus.FINISHED -> MatchStatus.FINISHED
+            else -> null
+        }
+        code == 1 -> if (startTimeEpochMs != null && startTimeEpochMs > nowMs) {
+            MatchStatus.UPCOMING
+        } else {
+            MatchStatus.LIVE
+        }
+        code >= 2 -> MatchStatus.FINISHED
+        fallback == MatchStatus.FINISHED -> MatchStatus.FINISHED
+        startTimeEpochMs == null -> fallback
+        startTimeEpochMs > nowMs -> fallback ?: MatchStatus.UPCOMING
+        else -> null
     }
-    code >= 2 -> MatchStatus.FINISHED
-    else -> fallback
 }
