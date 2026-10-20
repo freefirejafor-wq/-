@@ -9,25 +9,25 @@ import java.util.TimeZone
 object MatchDateWindow {
     private const val DHAKA_TIME_ZONE = "Asia/Dhaka"
 
-    /** Includes yesterday, today and tomorrow in Asia/Dhaka. */
+    /** Includes the two preceding, current, and two following calendar days in Asia/Dhaka. */
     fun contains(timestampMs: Long, nowMs: Long = System.currentTimeMillis()): Boolean {
         val todayStart = dhakaDayStart(nowMs)
         val start = (todayStart.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_YEAR, -1)
+            add(Calendar.DAY_OF_YEAR, -2)
         }.timeInMillis
         val endExclusive = (todayStart.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_YEAR, 2)
+            add(Calendar.DAY_OF_YEAR, 3)
         }.timeInMillis
         return timestampMs >= start && timestampMs < endExclusive
     }
 
-    /** ESPN indexes scoreboard days in its own calendar; include a UTC buffer, then filter in Dhaka. */
+    /** Query ESPN's UTC-adjacent days, then keep only the requested Asia/Dhaka date window. */
     fun espnQueryDates(nowMs: Long = System.currentTimeMillis()): List<String> {
         val todayStart = dhakaDayStart(nowMs)
         val formatter = SimpleDateFormat("yyyyMMdd", Locale.US).apply {
             timeZone = TimeZone.getTimeZone(DHAKA_TIME_ZONE)
         }
-        return (-2..1).map { offset ->
+        return (-3..2).map { offset ->
             val day = (todayStart.clone() as Calendar).apply {
                 add(Calendar.DAY_OF_YEAR, offset)
             }

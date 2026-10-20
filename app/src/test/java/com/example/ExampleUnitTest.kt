@@ -28,19 +28,19 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun matchWindowIncludesYesterdayTodayAndTomorrowInDhaka() {
+  fun matchWindowIncludesTwoDaysBeforeAndAfterInDhaka() {
     val now = utc("2026-10-19T06:00:00Z")
-    assertFalse(MatchDateWindow.contains(utc("2026-10-17T17:59:59Z"), now))
-    assertTrue(MatchDateWindow.contains(utc("2026-10-17T18:00:00Z"), now))
-    assertTrue(MatchDateWindow.contains(utc("2026-10-20T17:59:59Z"), now))
-    assertFalse(MatchDateWindow.contains(utc("2026-10-20T18:00:00Z"), now))
+    assertFalse(MatchDateWindow.contains(utc("2026-10-16T17:59:59Z"), now))
+    assertTrue(MatchDateWindow.contains(utc("2026-10-16T18:00:00Z"), now))
+    assertTrue(MatchDateWindow.contains(utc("2026-10-21T17:59:59Z"), now))
+    assertFalse(MatchDateWindow.contains(utc("2026-10-21T18:00:00Z"), now))
   }
 
   @Test
   fun espnDatesCoverTheDhakaWindowAndUtcBoundary() {
     val now = utc("2026-10-19T06:00:00Z")
     assertEquals(
-      listOf("20261017", "20261018", "20261019", "20261020"),
+      listOf("20261016", "20261017", "20261018", "20261019", "20261020", "20261021"),
       MatchDateWindow.espnQueryDates(now)
     )
   }

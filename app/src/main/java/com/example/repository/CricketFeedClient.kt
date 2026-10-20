@@ -100,11 +100,8 @@ internal class CricketFeedClient(
                         try {
                             val detailUrl = MATCH_DETAIL_URL + "?key=" + URLEncoder.encode(candidate.id, "UTF-8")
                             val detail = requestJson(detailUrl) as? JSONObject ?: return@withPermit null
-                            val matchStatus = when {
-                                detail.optInt("ms", 0) == 1 -> MatchStatus.LIVE
-                                detail.optInt("ms", 0) >= 2 -> MatchStatus.FINISHED
-                                else -> null
-                            } ?: return@withPermit null
+                            val matchStatus = statusFromDetail(detail, fallback = null)
+                                ?: return@withPermit null
                             val names = parseSpeechNames(detail)
                             val fixture = parseFixture(
                                 candidate.id,
@@ -163,11 +160,13 @@ internal class CricketFeedClient(
                             val detailUrl = MATCH_DETAIL_URL + "?key=" + URLEncoder.encode(candidate.id, "UTF-8")
                             val detail = requestJson(detailUrl) as? JSONObject
                             val names = detail?.let(::parseSpeechNames).orEmpty()
+                            val actualStatus = statusFromDetail(detail, fallback = status)
+                                ?: return@withPermit null
                             val fixture = parseFixture(
                                 candidate.id,
                                 candidate.row,
                                 detail,
-                                status,
+                                actualStatus,
                                 teamNames + names
                             )
                             FetchedFixture(fixture, names)
@@ -246,6 +245,17 @@ internal class CricketFeedClient(
             streams = emptyList(),
             isDemo = false
         )
+    }
+
+    /** The provider's match-detail status is authoritative; list endpoints mix match states. */
+    private fun statusFromDetail(detail: JSONObject?, fallback: MatchStatus?): MatchStatus? {
+        val code = detail?.optInt("ms", -1) ?: -1
+        return when {
+            code == 0 -> MatchStatus.UPCOMING
+            code == 1 -> MatchStatus.LIVE
+            code >= 2 -> MatchStatus.FINISHED
+            else -> fallback
+        }
     }
 
     private fun isInternationalFormat(format: String?): Boolean {
