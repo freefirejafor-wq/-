@@ -1,6 +1,6 @@
-name: Build & Release Debug APK
+name: "Build & Release Debug APK"
 
-on:
+"on":
   push:
     branches:
       - main
