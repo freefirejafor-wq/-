@@ -45,6 +45,17 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Configure Firebase for Android
+        env:
+          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$FIREBASE_GOOGLE_SERVICES_JSON" ]; then
+            echo "Missing GitHub Actions secret FIREBASE_GOOGLE_SERVICES_JSON" >&2
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON" > app/google-services.json
+          chmod 600 app/google-services.json
+
       - name: Prepare Environment & Debug Keystore
         run: |
           # Ensure gradlew has executable permissions
