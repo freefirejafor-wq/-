@@ -134,7 +134,8 @@ fun MainContent(viewModel: SportsViewModel) {
                         if (showAdminPanel) {
                             AdminPanelScreen(
                                 fixtures = fixtures,
-                                onBack = { showAdminPanel = false }
+                                onBack = { showAdminPanel = false },
+                                onDataChanged = { viewModel.reloadAdminData() }
                             )
                         } else when (currentTab) {
                             NavTab.LIVE_EVENTS -> {

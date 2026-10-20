@@ -17,4 +17,3 @@ local.properties
 .env
 debug.keystore
 .build-outputs/
-app/google-services.json

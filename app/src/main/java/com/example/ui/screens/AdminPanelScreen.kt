@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -43,7 +44,7 @@ import com.example.model.MatchFixture
 import com.example.model.MatchStatus
 import com.example.model.M3uChannel
 import com.example.model.SportType
-import com.example.repository.FirebaseSportsDataStore
+import com.example.repository.LocalSportsDataStore
 import com.example.repository.checkStreamAvailability
 import com.example.repository.formatAdminDateTime
 import com.example.repository.parseAdminDateTime
@@ -61,45 +62,36 @@ import java.util.UUID
 fun AdminPanelScreen(
     fixtures: List<MatchFixture>,
     onBack: () -> Unit,
+    onDataChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val store = remember { FirebaseSportsDataStore() }
+    val context = LocalContext.current.applicationContext
+    val store = remember(context) { LocalSportsDataStore(context) }
     val scope = rememberCoroutineScope()
 
     var loading by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
-    var signedIn by remember { mutableStateOf(false) }
     var isAdmin by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
+    var hasPassword by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var channels by remember { mutableStateOf<List<M3uChannel>>(emptyList()) }
     var activeSection by remember { mutableStateOf(0) }
     var showChannelEditor by remember { mutableStateOf(false) }
+    var showM3uImportDialog by remember { mutableStateOf(false) }
     var editingChannel by remember { mutableStateOf<M3uChannel?>(null) }
     var showMatchEditor by remember { mutableStateOf(false) }
     var editingMatch by remember { mutableStateOf<MatchFixture?>(null) }
 
     LaunchedEffect(store) {
-        if (store.isConfigured) {
-            signedIn = store.currentUserEmail != null
-            if (signedIn) {
-                isAdmin = runCatching { store.hasAdminAccess() }.getOrDefault(false)
-            }
-        } else {
-            message = "Firebase is not configured in this APK yet."
-        }
+        hasPassword = store.hasLocalPassword()
+        channels = store.loadAdminChannels()
         loading = false
     }
 
     LaunchedEffect(isAdmin) {
-        if (isAdmin) {
-            busy = true
-            runCatching { store.loadAdminChannels() }
-                .onSuccess { channels = it }
-                .onFailure { message = it.message ?: "Could not load channels." }
-            busy = false
-        }
+        if (isAdmin) channels = store.loadAdminChannels()
     }
 
     Column(
@@ -126,13 +118,12 @@ fun AdminPanelScreen(
             if (isAdmin) {
                 TextButton(
                     onClick = {
-                        store.signOut()
                         isAdmin = false
-                        signedIn = false
                         password = ""
-                        message = "Signed out."
+                        confirmation = ""
+                        message = "Admin panel locked."
                     }
-                ) { Text("Sign out") }
+                ) { Text("Lock") }
             } else {
                 Spacer(Modifier.width(64.dp))
             }
@@ -140,45 +131,41 @@ fun AdminPanelScreen(
 
         when {
             loading -> CircularProgressIndicator(color = CyanAccent)
-            !store.isConfigured -> SetupNotice(
-                text = message ?: "Firebase is not configured in this APK yet."
-            )
             !isAdmin -> {
-                if (signedIn) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SetupNotice(
-                            text = "This account is signed in but is not registered as an admin. Add its Firebase Auth UID to the admins collection."
-                        )
-                        TextButton(onClick = {
-                            store.signOut()
-                            signedIn = false
-                            message = "Signed out."
-                        }) { Text("Sign out") }
-                    }
-                } else {
-                    AdminSignInForm(
-                        email = email,
-                        onEmailChange = { email = it },
-                        password = password,
-                        onPasswordChange = { password = it },
-                        message = message,
-                        busy = busy,
-                        onSignIn = {
-                            message = null
-                            busy = true
-                            scope.launch {
-                                runCatching { store.signInAsAdmin(email.trim(), password) }
-                                    .onSuccess {
-                                        signedIn = true
-                                        isAdmin = true
-                                        password = ""
-                                    }
-                                    .onFailure { message = it.message ?: "Sign-in failed." }
-                                busy = false
+                LocalAdminAccessForm(
+                    hasPassword = hasPassword,
+                    password = password,
+                    onPasswordChange = { password = it },
+                    confirmation = confirmation,
+                    onConfirmationChange = { confirmation = it },
+                    message = message,
+                    busy = busy,
+                    onSubmit = {
+                        message = null
+                        busy = true
+                        scope.launch {
+                            runCatching {
+                                if (hasPassword) {
+                                    check(store.verifyLocalPassword(password)) { "Incorrect local password." }
+                                } else {
+                                    require(password.length >= 8) { "Choose a password with at least 8 characters." }
+                                    require(password == confirmation) { "Passwords do not match." }
+                                    store.setLocalPassword(password)
+                                    hasPassword = true
+                                }
+                            }.onSuccess {
+                                isAdmin = true
+                                password = ""
+                                confirmation = ""
+                                channels = store.loadAdminChannels()
+                                message = "Unlocked. Edits are stored on this device only."
+                            }.onFailure {
+                                message = it.message ?: "Could not unlock the admin panel."
                             }
+                            busy = false
                         }
-                    )
-                }
+                    }
+                )
             }
             else -> {
                 Row(
@@ -215,6 +202,7 @@ fun AdminPanelScreen(
                 } else if (activeSection == 0) {
                     ChannelAdminList(
                         channels = channels,
+                        onImportM3u = { showM3uImportDialog = true },
                         onAdd = {
                             editingChannel = null
                             showChannelEditor = true
@@ -231,7 +219,8 @@ fun AdminPanelScreen(
                                     store.loadAdminChannels()
                                 }.onSuccess {
                                     channels = it
-                                    message = "Channel removed."
+                                    message = "Channel removed from this device."
+                                    onDataChanged()
                                 }.onFailure {
                                     message = it.message ?: "Could not remove channel."
                                 }
@@ -255,6 +244,8 @@ fun AdminPanelScreen(
                                             ?: "Could not reorder channels."
                                         channels = runCatching { store.loadAdminChannels() }
                                             .getOrDefault(channels)
+                                    } else {
+                                        onDataChanged()
                                     }
                                     busy = false
                                 }
@@ -276,7 +267,7 @@ fun AdminPanelScreen(
                             busy = true
                             scope.launch {
                                 runCatching { store.deleteMatchOverride(match.id) }
-                                    .onSuccess { message = "Match override removed." }
+                                    .onSuccess { message = "Match override removed from this device."; onDataChanged() }
                                     .onFailure { message = it.message ?: "Could not remove match override." }
                                 busy = false
                             }
@@ -301,7 +292,8 @@ fun AdminPanelScreen(
                         store.loadAdminChannels()
                     }.onSuccess {
                         channels = it
-                        message = "Channel saved. Active channels are published to the app."
+                        message = "Channel saved on this device."
+                        onDataChanged()
                     }.onFailure {
                         message = it.message ?: "Could not save channel."
                     }
@@ -322,7 +314,8 @@ fun AdminPanelScreen(
                 scope.launch {
                     runCatching { store.saveMatchOverride(fixture, isManual) }
                         .onSuccess {
-                            message = "Match saved and published."
+                            message = "Match saved on this device."
+                            onDataChanged()
                         }
                         .onFailure {
                             message = it.message ?: "Could not save match."
@@ -331,18 +324,42 @@ fun AdminPanelScreen(
                 }
             }
         )
+    if (showM3uImportDialog) {
+        M3uImportDialog(
+            busy = busy,
+            message = message,
+            onDismiss = { if (!busy) showM3uImportDialog = false },
+            onImport = { source, isUrl ->
+                message = null
+                busy = true
+                scope.launch {
+                    val result = store.importM3uPlaylist(source, isUrl)
+                    result.onSuccess { count ->
+                        channels = store.loadAdminChannels()
+                        message = "Imported " + count + " channels on this device."
+                        onDataChanged()
+                        showM3uImportDialog = false
+                    }.onFailure {
+                        message = it.message ?: "Could not import the playlist."
+                    }
+                    busy = false
+                }
+            }
+        )
+    }
     }
 }
 
 @Composable
-private fun AdminSignInForm(
-    email: String,
-    onEmailChange: (String) -> Unit,
+private fun LocalAdminAccessForm(
+    hasPassword: Boolean,
     password: String,
     onPasswordChange: (String) -> Unit,
+    confirmation: String,
+    onConfirmationChange: (String) -> Unit,
     message: String?,
     busy: Boolean,
-    onSignIn: () -> Unit
+    onSubmit: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -350,55 +367,45 @@ private fun AdminSignInForm(
             .padding(top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Sign in with your admin account", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Only accounts listed in Firebase's admins collection can edit app data.",
+            if (hasPassword) "Unlock local admin panel" else "Create a local admin password",
+            color = TextPrimary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "This password is stored on this device only. Each app installation has separate channels and match edits.",
             color = TextSecondary,
             fontSize = 13.sp
         )
         OutlinedTextField(
-            value = email,
-            onValueChange = onEmailChange,
-            label = { Text("Admin email") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
             value = password,
             onValueChange = onPasswordChange,
-            label = { Text("Password") },
+            label = { Text(if (hasPassword) "Admin password" else "Create password") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
         )
+        if (!hasPassword) {
+            OutlinedTextField(
+                value = confirmation,
+                onValueChange = onConfirmationChange,
+                label = { Text("Confirm password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text("Use at least 8 characters. No shared/default password is included in the APK.", color = TextMuted, fontSize = 12.sp)
+        }
         message?.let { Text(it, color = TextSecondary, fontSize = 13.sp) }
         Button(
-            onClick = onSignIn,
-            enabled = !busy && email.isNotBlank() && password.isNotBlank(),
+            onClick = onSubmit,
+            enabled = !busy && password.isNotBlank() && (hasPassword || confirmation.isNotBlank()),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (busy) "Signing in…" else "Sign in")
-        }
-    }
-}
-
-@Composable
-private fun SetupNotice(text: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = NavyCard),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Admin setup needed", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text(text, color = TextSecondary, fontSize = 14.sp)
-            Text(
-                "Enable Firebase Email/Password sign-in, create the Firestore database, add an admins/{uid} record for the admin account, and deploy firestore.rules.",
-                color = TextMuted,
-                fontSize = 12.sp
-            )
+            Text(if (busy) "Please wait…" else if (hasPassword) "Unlock" else "Set password")
         }
     }
 }
@@ -406,6 +413,7 @@ private fun SetupNotice(text: String) {
 @Composable
 private fun ChannelAdminList(
     channels: List<M3uChannel>,
+    onImportM3u: () -> Unit,
     onAdd: () -> Unit,
     onEdit: (M3uChannel) -> Unit,
     onDelete: (M3uChannel) -> Unit,
@@ -416,8 +424,11 @@ private fun ChannelAdminList(
             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("${channels.size} channels", color = TextSecondary, modifier = Modifier.padding(top = 10.dp))
-            Button(onClick = onAdd) { Text("Add channel") }
+            Text(channels.size.toString() + " channels", color = TextSecondary, modifier = Modifier.padding(top = 10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TextButton(onClick = onImportM3u) { Text("Import M3U") }
+                Button(onClick = onAdd) { Text("Add channel") }
+            }
         }
         if (channels.isEmpty()) {
             Text("No channels yet. Add a channel and one or more stream URLs.", color = TextSecondary)
@@ -460,7 +471,7 @@ private fun ChannelAdminCard(
         Column(Modifier.padding(14.dp)) {
             Text(channel.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Text(
-                "${channel.group} • $sourceCount stream${if (sourceCount == 1) "" else "s"} • ${if (channel.enabled) "Published" else "Hidden"}",
+                "${channel.group} • $sourceCount stream${if (sourceCount == 1) "" else "s"} • ${if (channel.enabled) "Active" else "Hidden"}",
                 color = TextSecondary,
                 fontSize = 12.sp
             )
@@ -476,7 +487,7 @@ private fun ChannelAdminCard(
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete channel?") },
-            text = { Text("This removes ${channel.name} from the app for everyone.") },
+            text = { Text("This removes ${channel.name} from this device.") },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirmation = false
@@ -547,7 +558,7 @@ private fun MatchAdminList(
                             text = {
                                 Text(
                                     if (match.id.startsWith("admin_")) {
-                                        "This removes the manual match from the app for everyone."
+                                        "This removes the manual match from this device."
                                     } else {
                                         "This discards your saved edits and returns the match to its sports feed data."
                                     }
@@ -606,7 +617,7 @@ private fun ChannelEditorDialog(
             ) {
                 OutlinedTextField(name, { name = it }, label = { Text("Channel name") }, singleLine = true)
                 OutlinedTextField(group, { group = it }, label = { Text("Category") }, singleLine = true)
-                OutlinedTextField(logoUrl, { logoUrl = it }, label = { Text("Logo URL (optional)") }, singleLine = true)
+                OutlinedTextField(logoUrl, { logoUrl = it }, label = { Text("Channel image URL (optional)") }, singleLine = true)
                 OutlinedTextField(
                     value = streamText,
                     onValueChange = { streamText = it; checkResult = null },
@@ -642,7 +653,7 @@ private fun ChannelEditorDialog(
                         }
                     ) { Text(if (checking) "Checking…" else "Check links") }
                     TextButton(onClick = { enabled = !enabled }) {
-                        Text(if (enabled) "Published" else "Hidden")
+                        Text(if (enabled) "Active" else "Hidden")
                     }
                 }
                 checkResult?.let { Text(it, color = TextSecondary, fontSize = 11.sp) }
@@ -837,5 +848,48 @@ private fun MatchEditorDialog(
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun M3uImportDialog(
+    busy: Boolean,
+    message: String?,
+    onDismiss: () -> Unit,
+    onImport: (String, Boolean) -> Unit
+) {
+    var source by remember { mutableStateOf("") }
+    var isUrl by remember { mutableStateOf(true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import M3U playlist") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { isUrl = true }) { Text("Playlist URL") }
+                    TextButton(onClick = { isUrl = false }) { Text("Paste M3U text") }
+                }
+                OutlinedTextField(
+                    value = source,
+                    onValueChange = { source = it },
+                    label = { Text(if (isUrl) "M3U URL" else "Playlist content") },
+                    placeholder = { Text(if (isUrl) "https://example.com/channels.m3u" else "#EXTM3U …") },
+                    singleLine = isUrl,
+                    minLines = if (isUrl) 1 else 6,
+                    maxLines = if (isUrl) 1 else 10,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("Imported channels are saved only on this device.", color = TextMuted, fontSize = 12.sp)
+                message?.let { Text(it, color = TextSecondary, fontSize = 12.sp) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onImport(source.trim(), isUrl) },
+                enabled = !busy && source.isNotBlank()
+            ) { Text(if (busy) "Importing…" else "Import") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } }
     )
 }

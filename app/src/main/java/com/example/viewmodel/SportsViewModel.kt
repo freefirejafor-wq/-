@@ -1,6 +1,7 @@
 package com.example.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.model.M3uChannel
 import com.example.model.MatchFixture
@@ -23,9 +24,9 @@ sealed interface AppScreen {
     object Main : AppScreen
 }
 
-class SportsViewModel(
-    private val repository: SportsRepository = SportsRepositoryImpl()
-) : ViewModel() {
+class SportsViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository: SportsRepository = SportsRepositoryImpl(application.applicationContext)
 
     private val _appScreen = MutableStateFlow<AppScreen>(AppScreen.Splash)
     val appScreen: StateFlow<AppScreen> = _appScreen.asStateFlow()
@@ -126,6 +127,8 @@ class SportsViewModel(
     }
 
     fun getApiDocs() = repository.getApiConfigDocumentation()
+
+    fun reloadAdminData() = repository.reloadAdminData()
 
     override fun onCleared() {
         repository.close()

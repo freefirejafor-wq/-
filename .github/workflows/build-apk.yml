@@ -73,19 +73,7 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Prepare Firebase Android config
-        env:
-          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
-        run: |
-          if [ -n "$FIREBASE_GOOGLE_SERVICES_JSON" ]; then
-            printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON" > app/google-services.json
-          else
-            echo "::warning::FIREBASE_GOOGLE_SERVICES_JSON is not set; the APK will use sample channels."
-          fi
-
       - name: Build Debug APK with Gradle
-        env:
-          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID }}
         run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
 
       - name: Prepare APK Package & Checksum

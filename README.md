@@ -66,22 +66,12 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## In-app Admin Panel
 
-The Admin Panel is part of the Android app (Menu → Admin Panel). It supports:
+The Admin Panel is available from Menu → Admin Panel in the public Android APK. It supports:
 
-- Email/password sign-in for admins only.
 - Adding, editing, hiding, deleting, and ordering channels and categories.
-- Multiple named stream URLs per channel or match, including HLS `.m3u8` and DASH `.mpd`.
+- Multiple named HLS (.m3u8), M3U playlist, DASH (.mpd), or direct HTTP(S) stream sources per channel or match.
 - Checking whether a stream URL responds over HTTP(S).
-- Editing feed matches and adding manual matches, including score, status, Dhaka start time, and stream choices.
+- Adding a channel image by URL.
+- Editing feed matches and adding local manual matches, including score, status, Dhaka start time, and stream choices.
 
-### One-time Firebase setup
-
-The admin screen and public sync use Firebase Authentication and Cloud Firestore. The APK does not contain an admin password or a client-side admin allowlist; Firestore rules enforce admin-only writes.
-
-1. In Firebase Authentication, enable **Email/Password** and create the admin account.
-2. Create a Cloud Firestore database.
-3. In Firestore, create a document at `admins/{ADMIN_AUTH_UID}`. Use the admin's Firebase Authentication UID as the document ID; the document body can contain `{ "role": "admin" }`.
-4. Deploy the repository's rules with `firebase deploy --only firestore:rules`.
-5. Ensure the existing GitHub Actions secret `FIREBASE_GOOGLE_SERVICES_JSON` is configured for the Android app's Firebase project before building the APK.
-
-The app uses the `channels` and `matchOverrides` collections. Channel documents with `isActive: true` are visible to regular users; all writes require an `admins/{uid}` record. Match override documents are public app data and are writable only by admins. Do not put private CDN signing keys or other secrets in public stream URLs or Firestore documents.
+On first use, each installation creates its own local admin password. Channel and match edits are stored only on that device; they are not shared with other users and do not require Firebase or another backend. The password is not bundled in the APK.
