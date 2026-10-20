@@ -124,13 +124,13 @@ jobs:
           tag_name: ${{ steps.release_info.outputs.tag }}
           name: "Football Live TV ${{ steps.release_info.outputs.tag }}"
           body: |
-            ## â½ Football Live TV - Android Debug APK Release
+            ## ⚽ Football Live TV - Android Debug APK Release
 
             Direct download of the native Android sports live-streaming application.
 
-            ### ð Features Included:
+            ### 🚀 Features Included:
             - **AndroidX Media3 ExoPlayer**: High-efficiency playback for HLS (`.m3u8`) and MPEG-DASH (`.mpd`) live streams.
-            - **Custom Player Controls**: Aspect ratio toggle, Picture-in-Picture (floating player), seek Â±10s, mute, full screen landscape support.
+            - **Custom Player Controls**: Aspect ratio toggle, Picture-in-Picture (floating player), seek ±10s, mute, full screen landscape support.
             - **Multiple-Stream Picker**: Instant source switching between HD, FHD, and adaptive feeds.
             - **Live Fixtures & Scores**: Schedules formatted in **Asia/Dhaka** timezone with live counters and filterable sports categories.
             - **M3U Playlist Importer**: Import and stream IPTV channels via URL or raw text.
@@ -138,12 +138,12 @@ jobs:
 
             ---
 
-            ### ð¦ File Details:
+            ### 📦 File Details:
             - **File Name**: `${{ steps.prepare_apk.outputs.apk_path }}`
             - **Target Platform**: Android 7.0+ (API 24+)
             - **SHA-256**: `${{ steps.prepare_apk.outputs.sha256 }}`
 
-            ### ð² Installation Instructions:
+            ### 📲 Installation Instructions:
             1. Download the `.apk` file below directly to your Android device.
             2. If prompted, enable **"Install unknown apps"** in your Android device settings.
             3. Tap the file to install and open **Football Live TV**.
