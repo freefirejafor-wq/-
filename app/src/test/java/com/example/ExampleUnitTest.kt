@@ -4,6 +4,8 @@ import org.junit.Assert.*
 import com.example.model.SportType
 import org.junit.Test
 import com.example.util.MatchDateWindow
+import com.example.model.MatchStatus
+import com.example.repository.cricketStatusFromCode
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -49,5 +51,16 @@ class ExampleUnitTest {
     "yyyy-MM-dd'T'HH:mm:ss'Z'",
     Locale.US
   ).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(value)!!.time
+
+
+  @Test
+  fun cricketProviderStatusCodesUseTheCorrectFilterBuckets() {
+    assertEquals(MatchStatus.UPCOMING, cricketStatusFromCode(0))
+    assertEquals(MatchStatus.LIVE, cricketStatusFromCode(1))
+    assertEquals(MatchStatus.FINISHED, cricketStatusFromCode(2))
+    assertEquals(MatchStatus.FINISHED, cricketStatusFromCode(3))
+    assertEquals(MatchStatus.UPCOMING, cricketStatusFromCode(-1, MatchStatus.UPCOMING))
+    assertNull(cricketStatusFromCode(-1))
+  }
 
 }

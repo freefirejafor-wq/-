@@ -146,7 +146,8 @@ fun FixtureCard(
                     TeamLogoBadge(
                         name = fixture.team1Name,
                         abbr = fixture.team1Abbr,
-                        logoUrl = fixture.team1LogoUrl
+                        logoUrl = fixture.team1LogoUrl,
+                        isFlag = fixture.sport == SportType.CRICKET
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -285,7 +286,8 @@ fun FixtureCard(
                     TeamLogoBadge(
                         name = fixture.team2Name,
                         abbr = fixture.team2Abbr,
-                        logoUrl = fixture.team2LogoUrl
+                        logoUrl = fixture.team2LogoUrl,
+                        isFlag = fixture.sport == SportType.CRICKET
                     )
                 }
             }
@@ -340,47 +342,59 @@ fun FixtureCard(
 }
 
 @Composable
-fun TeamLogoBadge(name: String, abbr: String, logoUrl: String? = null) {
-    // Generate an attractive visual crest / emblem based on the team initials
+fun TeamLogoBadge(
+    name: String,
+    abbr: String,
+    logoUrl: String? = null,
+    isFlag: Boolean = false
+) {
     val initials = if (abbr.isNotBlank()) abbr.take(3) else name.take(2).uppercase()
     val bgColors = listOf(
         Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047),
         Color(0xFFFB8C00), Color(0xFF8E24AA), Color(0xFF00ACC1)
     )
-    val colorIndex = Math.abs(name.hashCode()) % bgColors.size
-    val bgColor = bgColors[colorIndex]
+    val bgColor = bgColors[Math.floorMod(name.hashCode(), bgColors.size)]
+    val badgeShape = RoundedCornerShape(if (isFlag) 5.dp else 9.dp)
+    val badgeSize = if (isFlag) {
+        Modifier.size(width = 42.dp, height = 28.dp)
+    } else {
+        Modifier.size(34.dp)
+    }
 
     Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(bgColor)
-            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape),
+        modifier = badgeSize
+            .clip(badgeShape)
+            .background(if (isFlag) Color.White else bgColor)
+            .border(
+                1.dp,
+                if (isFlag) Color(0xFFCBD5E1) else Color.White.copy(alpha = 0.25f),
+                badgeShape
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = initials,
-            color = Color.White,
-            fontSize = 11.sp,
+            color = if (isFlag) Color(0xFF172033) else Color.White,
+            fontSize = if (isFlag) 9.sp else 11.sp,
             fontWeight = FontWeight.Black
         )
         if (!logoUrl.isNullOrBlank()) {
             AsyncImage(
                 model = logoUrl,
-                contentDescription = "$name flag",
-                contentScale = ContentScale.Crop,
+                contentDescription = if (isFlag) "$name flag" else "$name team logo",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(CircleShape)
+                    .padding(1.dp)
+                    .clip(badgeShape)
             )
         }
     }
 }
-
 private fun cricketScoreLabel(fixture: MatchFixture): String? {
     val first = fixture.team1Score?.let { "${fixture.team1Abbr} $it" }
     val second = fixture.team2Score?.let { "${fixture.team2Abbr} $it" }
-    return listOfNotNull(first, second).joinToString("  â¢  ").takeIf { it.isNotBlank() }
+    return listOfNotNull(first, second).joinToString("  Ã¢ÂÂ¢  ").takeIf { it.isNotBlank() }
 }
 
 @Composable

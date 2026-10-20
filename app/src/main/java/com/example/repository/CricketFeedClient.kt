@@ -184,7 +184,7 @@ internal class CricketFeedClient(
                         }
                     }
                 }
-            }.awaitAll()
+            }.awaitAll().filterNotNull()
         }
         results.forEach { teamNames.putAll(it.teamNames) }
         return results.mapNotNull { it.fixture }
@@ -249,13 +249,7 @@ internal class CricketFeedClient(
 
     /** The provider's match-detail status is authoritative; list endpoints mix match states. */
     private fun statusFromDetail(detail: JSONObject?, fallback: MatchStatus?): MatchStatus? {
-        val code = detail?.optInt("ms", -1) ?: -1
-        return when {
-            code == 0 -> MatchStatus.UPCOMING
-            code == 1 -> MatchStatus.LIVE
-            code >= 2 -> MatchStatus.FINISHED
-            else -> fallback
-        }
+        return cricketStatusFromCode(detail?.optInt("ms", -1) ?: -1, fallback)
     }
 
     private fun isInternationalFormat(format: String?): Boolean {
@@ -468,4 +462,13 @@ internal class CricketFeedClient(
         private val TEAM_IMAGE_PATTERN = Pattern.compile("/Teams/([^/\"'?]+)\\.png", Pattern.CASE_INSENSITIVE)
         private val TEAM_ALT_PATTERN = Pattern.compile("\\balt=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE)
     }
+}
+
+
+/** Converts the cricket provider's match status code into the app's filter bucket. */
+internal fun cricketStatusFromCode(code: Int, fallback: MatchStatus? = null): MatchStatus? = when {
+    code == 0 -> MatchStatus.UPCOMING
+    code == 1 -> MatchStatus.LIVE
+    code >= 2 -> MatchStatus.FINISHED
+    else -> fallback
 }
