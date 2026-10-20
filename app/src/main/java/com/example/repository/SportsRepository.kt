@@ -45,6 +45,7 @@ class SportsRepositoryImpl : SportsRepository {
     private val cricketFeedClient = CricketFeedClient()
     private val footballFeedClient = FootballFeedClient()
 
+    private val _baseFixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     private val _fixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     override val fixturesFlow: Flow<List<MatchFixture>> = _fixtures.asStateFlow()
 
@@ -57,9 +58,16 @@ class SportsRepositoryImpl : SportsRepository {
         (remote ?: sampleChannels()) + local
     }
     private var firestoreChannelListener: ListenerRegistration? = null
+    private val firebaseStore = FirebaseSportsDataStore()
+    private val _matchOverrides = MutableStateFlow<Map<String, MatchAdminOverride>>(emptyMap())
+    private var overridesListener: ListenerRegistration? = null
 
     init {
         observeFirestoreChannels()
+        overridesListener = firebaseStore.observePublicMatchOverrides { overrides ->
+            _matchOverrides.value = overrides
+            _fixtures.value = applyMatchOverrides(_baseFixtures.value)
+        }
     }
 
     private fun observeFirestoreChannels() {
@@ -141,7 +149,7 @@ class SportsRepositoryImpl : SportsRepository {
         val cricketResult = cricketRequest.await()
         val footballResult = footballRequest.await()
 
-        val existing = _fixtures.value
+        val existing = _baseFixtures.value
         val nowMs = System.currentTimeMillis()
         val cricketFixtures = (cricketResult.getOrNull()
             ?: existing.filter { it.sport == SportType.CRICKET })
@@ -149,7 +157,9 @@ class SportsRepositoryImpl : SportsRepository {
         val footballFixtures = (footballResult.getOrNull()
             ?: existing.filter { it.sport == SportType.FOOTBALL })
             .filter { MatchDateWindow.contains(it.startTimeEpochMs, nowMs) }
-        _fixtures.value = cricketFixtures + footballFixtures
+        val baseFixtures = cricketFixtures + footballFixtures
+        _baseFixtures.value = baseFixtures
+        _fixtures.value = applyMatchOverrides(baseFixtures)
 
         if (cricketResult.isSuccess && footballResult.isSuccess) {
             Result.success(Unit)
@@ -212,6 +222,20 @@ class SportsRepositoryImpl : SportsRepository {
     override fun close() {
         firestoreChannelListener?.remove()
         firestoreChannelListener = null
+        overridesListener?.remove()
+    }
+
+    private fun applyMatchOverrides(fixtures: List<MatchFixture>): List<MatchFixture> {
+        val overrides = _matchOverrides.value
+        val fixtureIds = fixtures.mapTo(mutableSetOf()) { it.id }
+        val updated = fixtures.map { fixture ->
+            overrides[fixture.id]?.applyTo(fixture) ?: fixture
+        }
+        val adminCreated = overrides
+            .filter { (id, override) -> override.isManual && id !in fixtureIds }
+            .values
+            .mapNotNull { it.toFixture() }
+        return updated + adminCreated
     }
 
     override fun getApiConfigDocumentation(): ApiDocumentation {

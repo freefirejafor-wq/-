@@ -27,6 +27,7 @@ import com.example.ui.components.SportsBottomNavBar
 import com.example.ui.components.StreamPickerModal
 import com.example.model.MatchFixture
 import com.example.ui.screens.CategoriesScreen
+import com.example.ui.screens.AdminPanelScreen
 import com.example.ui.screens.FavouritesScreen
 import com.example.ui.screens.LiveEventsScreen
 import com.example.ui.screens.MenuScreen
@@ -70,6 +71,7 @@ fun MainContent(viewModel: SportsViewModel) {
     val activeFixture by viewModel.activeFixture.collectAsState()
     val activeStream by viewModel.activeStream.collectAsState()
     var relatedPickerFixture by remember { mutableStateOf<MatchFixture?>(null) }
+    var showAdminPanel by remember { mutableStateOf(false) }
 
     fun openTelegram() {
         try {
@@ -102,7 +104,9 @@ fun MainContent(viewModel: SportsViewModel) {
                 )
             } else {
                 // Secondary tab back handler -> pop back to Live Events
-                if (currentTab != NavTab.LIVE_EVENTS) {
+                if (showAdminPanel) {
+                    BackHandler { showAdminPanel = false }
+                } else if (currentTab != NavTab.LIVE_EVENTS) {
                     BackHandler {
                         viewModel.selectTab(NavTab.LIVE_EVENTS)
                     }
@@ -113,10 +117,12 @@ fun MainContent(viewModel: SportsViewModel) {
                         .fillMaxSize()
                         .background(NavyBackground),
                     bottomBar = {
-                        SportsBottomNavBar(
-                            currentTab = currentTab,
-                            onTabSelected = { viewModel.selectTab(it) }
-                        )
+                        if (!showAdminPanel) {
+                            SportsBottomNavBar(
+                                currentTab = currentTab,
+                                onTabSelected = { viewModel.selectTab(it) }
+                            )
+                        }
                     }
                 ) { innerPadding ->
                     Box(
@@ -125,7 +131,12 @@ fun MainContent(viewModel: SportsViewModel) {
                             .padding(bottom = innerPadding.calculateBottomPadding())
                             .background(NavyBackground)
                     ) {
-                        when (currentTab) {
+                        if (showAdminPanel) {
+                            AdminPanelScreen(
+                                fixtures = fixtures,
+                                onBack = { showAdminPanel = false }
+                            )
+                        } else when (currentTab) {
                             NavTab.LIVE_EVENTS -> {
                                 LiveEventsScreen(
                                     fixtures = fixtures,
@@ -168,14 +179,19 @@ fun MainContent(viewModel: SportsViewModel) {
                                     channels = m3uChannels,
                                     onImportUrl = { url -> viewModel.importM3uUrl(url) },
                                     onImportText = { text -> viewModel.importM3uText(text) },
-                                    onPlayChannel = { fixture, stream ->
-                                        viewModel.openPlayer(fixture, stream)
+                                    onPlayChannel = { fixture ->
+                                        if (fixture.streams.size > 1) {
+                                            relatedPickerFixture = fixture
+                                        } else {
+                                            viewModel.openPlayer(fixture, fixture.streams.first())
+                                        }
                                     }
                                 )
                             }
                             NavTab.MENU -> {
                                 MenuScreen(
                                     onNavigateToPlaylists = { viewModel.selectTab(NavTab.CATEGORIES) },
+                                    onOpenAdminPanel = { showAdminPanel = true },
                                     onPlayCustomStream = { fixture, stream ->
                                         viewModel.openPlayer(fixture, stream)
                                     },

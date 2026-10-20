@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Admin records are provisioned by the Firebase project owner, never by the app.
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    // Public users see only published channels; edits require an admin record.
+    match /channels/{channelId} {
+      allow read: if isAdmin() || resource.data.isActive == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Match schedules, scores, and stream choices are public app data.
+    match /matchOverrides/{matchId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

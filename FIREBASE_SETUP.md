@@ -1,27 +1,27 @@
-# Firebase channel control (Android)
+# Firebase setup for the in-app admin panel
 
-The Android app reads channels from the same Firestore database used by the AI Studio admin website. The web admin remains the only writer.
+The Android APK includes its own Admin Panel (Menu → Admin Panel). Channel edits sync through the existing `channels` collection; match edits and manually added matches use `matchOverrides`. Firestore rules grant writes only to accounts whose Firebase Authentication UID has an `admins/{uid}` document.
 
-## Data contract
+## Firestore data contract
 
-- Collection: `channels`
-- Android query: `isActive == true`
-- Fields: `name` (string), `category` (string), `format` (`HLS`, `DASH`, or `PROGRESSIVE`), `isActive` (boolean), `logoUrl` (string), `quality` (string), `sortOrder` (integer), `streamUrl` (string), plus optional timestamps.
-- `category` maps to the Android channel group. `sortOrder` controls display order. Inactive documents are not returned to the APK.
-- Android subscribes with a Firestore snapshot listener, so admin changes appear without publishing a new APK.
+- `channels`: `name`, `category`, `format`, `quality`, `streamUrl`, `streams`, `isActive`, `sortOrder`, and optional `logoUrl`/timestamps. The app publicly reads only documents where `isActive == true`.
+- `streams` is an array of named stream objects, each with `name`, `qualityLabel`, `streamUrl`, and `format`. Existing single-URL channel documents remain supported.
+- `matchOverrides`: match fields, scores/status, Dhaka start time, and optional named stream sources. Match data is public app content.
+- `admins/{uid}`: admin membership record, created by the Firebase project owner; the app cannot create or edit these records.
 
-## Firebase config without committing keys
+## One-time Firebase setup
 
-The repository is public. Never commit `google-services.json` or a service-account key.
+1. In Firebase Authentication, enable the **Email/Password** provider and create the admin account.
+2. Register the Android app in that Firebase project using the package name `com.example`, then download its `google-services.json`.
+3. In Firestore, create a document at `admins/{ADMIN_AUTH_UID}`. Replace the placeholder with the admin account's Firebase Authentication UID; the document may contain `{ "role": "admin" }`.
+4. Deploy the repository rules with `firebase deploy --only firestore:rules`. Do not make `channels` or `matchOverrides` writable by unauthenticated users.
+5. For GitHub Actions builds, store the downloaded file as the repository secret `FIREBASE_GOOGLE_SERVICES_JSON`. Do not commit or paste the file contents into chat. The workflow can still build without it, but Firebase features will be unavailable in that APK.
+6. If the project uses a named Firestore database, set the GitHub Actions repository variable `FIRESTORE_DATABASE_ID` to its database ID. Leave it unset for `(default)`.
 
-1. In the same Firebase project as the admin website, register an Android app using the package name from `app/build.gradle.kts` (`com.example`).
-2. Download that Android app's `google-services.json`.
-3. In GitHub, open **Settings → Secrets and variables → Actions → New repository secret**. Name it `FIREBASE_GOOGLE_SERVICES_JSON` and use the complete contents of `google-services.json` as the secret value. Do not paste the file contents into chat or commit them to the repo.
-4. If Firestore uses the default database, leave `FIRESTORE_DATABASE_ID` unset. For a named database, add a repository variable named `FIRESTORE_DATABASE_ID` with the exact database ID shown in the Firestore selector.
-5. Re-run **Build & Release Debug APK**. The workflow materializes the config only inside the runner, then builds the APK.
+For local builds, put `google-services.json` at `app/google-services.json`; it is ignored by Git. Set `FIRESTORE_DATABASE_ID` locally only for a named database.
 
-For a local build, place the downloaded file at `app/google-services.json`; `.gitignore` keeps it out of commits. Set `FIRESTORE_DATABASE_ID` in the local environment only when using a named database.
+## Admin sign-in and stream URLs
 
-## Firestore security
+Open **Menu → Admin Panel** in the APK and sign in with the account from step 1. The panel supports channel categories, multiple named streams, visibility/order controls, link checks, match status/scores, and manual matches. Stream checks only confirm that the URL responds over HTTP(S); they do not guarantee the provider permits playback in every region.
 
-Keep client writes denied. The Android app only reads active channel records; the admin website should retain authenticated admin checks for create, update, and delete. If the Android listener reports `PERMISSION_DENIED`, update rules to allow reads of active channels only—do not make the whole collection publicly writable.
+Channel URLs are public app data because regular users need them to play streams. Do not store private CDN signing keys, passwords, or other secrets in URLs or Firestore documents.
