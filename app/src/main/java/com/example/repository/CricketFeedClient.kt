@@ -100,8 +100,12 @@ internal class CricketFeedClient(
                         try {
                             val detailUrl = MATCH_DETAIL_URL + "?key=" + URLEncoder.encode(candidate.id, "UTF-8")
                             val detail = requestJson(detailUrl) as? JSONObject ?: return@withPermit null
-                            val matchStatus = statusFromDetail(detail, fallback = null)
-                                ?: return@withPermit null
+                            val startTime = matchTimeMs(detail) ?: matchTimeMs(candidate.row)
+                            val matchStatus = statusFromDetail(
+                                detail,
+                                fallback = null,
+                                startTimeEpochMs = startTime
+                            ) ?: return@withPermit null
                             val names = parseSpeechNames(detail)
                             val fixture = parseFixture(
                                 candidate.id,
@@ -160,8 +164,12 @@ internal class CricketFeedClient(
                             val detailUrl = MATCH_DETAIL_URL + "?key=" + URLEncoder.encode(candidate.id, "UTF-8")
                             val detail = requestJson(detailUrl) as? JSONObject
                             val names = detail?.let(::parseSpeechNames).orEmpty()
-                            val actualStatus = statusFromDetail(detail, fallback = status)
-                                ?: return@withPermit null
+                            val startTime = matchTimeMs(detail) ?: matchTimeMs(candidate.row)
+                            val actualStatus = statusFromDetail(
+                                detail,
+                                fallback = status,
+                                startTimeEpochMs = startTime
+                            ) ?: return@withPermit null
                             val fixture = parseFixture(
                                 candidate.id,
                                 candidate.row,
@@ -248,8 +256,16 @@ internal class CricketFeedClient(
     }
 
     /** The provider's match-detail status is authoritative; list endpoints mix match states. */
-    private fun statusFromDetail(detail: JSONObject?, fallback: MatchStatus?): MatchStatus? {
-        return cricketStatusFromCode(detail?.optInt("ms", -1) ?: -1, fallback)
+    private fun statusFromDetail(
+        detail: JSONObject?,
+        fallback: MatchStatus?,
+        startTimeEpochMs: Long?
+    ): MatchStatus? {
+        return cricketStatusFromCode(
+            detail?.optInt("ms", -1) ?: -1,
+            fallback,
+            startTimeEpochMs
+        )
     }
 
     private fun isInternationalFormat(format: String?): Boolean {
@@ -466,9 +482,20 @@ internal class CricketFeedClient(
 
 
 /** Converts the cricket provider's match status code into the app's filter bucket. */
-internal fun cricketStatusFromCode(code: Int, fallback: MatchStatus? = null): MatchStatus? = when {
+internal fun cricketStatusFromCode(
+    code: Int,
+    fallback: MatchStatus? = null,
+    startTimeEpochMs: Long? = null,
+    nowMs: Long = System.currentTimeMillis()
+): MatchStatus? = when {
     code == 0 -> MatchStatus.UPCOMING
-    code == 1 -> MatchStatus.LIVE
+    // The provider also uses ms=1 for scheduled fixtures in its live-feed response.
+    // A fixture cannot be live before its reported start time.
+    code == 1 -> if (startTimeEpochMs != null && startTimeEpochMs > nowMs) {
+        MatchStatus.UPCOMING
+    } else {
+        MatchStatus.LIVE
+    }
     code >= 2 -> MatchStatus.FINISHED
     else -> fallback
 }

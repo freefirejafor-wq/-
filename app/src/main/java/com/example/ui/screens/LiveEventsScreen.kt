@@ -178,7 +178,9 @@ fun LiveEventsScreen(
         SportCategoryBar(
             selectedSport = selectedSport,
             onSportSelected = onSportSelected,
-            cricketMatchCount = fixtures.count { it.sport == SportType.CRICKET }
+            matchCounts = SportType.values().associateWith { sport ->
+                if (sport == SportType.ALL) fixtures.size else fixtures.count { it.sport == sport }
+            }
         )
 
         // Status Filter Pills Bar

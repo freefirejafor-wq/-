@@ -51,7 +51,7 @@ import com.example.ui.theme.TextSecondary
 fun SportCategoryBar(
     selectedSport: SportType,
     onSportSelected: (SportType) -> Unit,
-    cricketMatchCount: Int = SportType.CRICKET.badgeCount,
+    matchCounts: Map<SportType, Int> = SportType.values().associateWith { it.badgeCount },
     modifier: Modifier = Modifier
 ) {
     LazyRow(
@@ -64,7 +64,7 @@ fun SportCategoryBar(
             SportCategoryItem(
                 sport = sport,
                 isSelected = isSelected,
-                badgeCount = if (sport == SportType.CRICKET) cricketMatchCount else sport.badgeCount,
+                badgeCount = matchCounts[sport] ?: 0,
                 onClick = { onSportSelected(sport) }
             )
         }

@@ -6,6 +6,7 @@ import com.example.model.MatchFixture
 import com.example.model.MatchStatus
 import com.example.model.SportType
 import com.example.model.StreamFormat
+import com.example.util.MatchDateWindow
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -98,10 +99,13 @@ class SportsRepositoryImpl : SportsRepository {
         val footballResult = footballRequest.await()
 
         val existing = _fixtures.value
-        val cricketFixtures = cricketResult.getOrNull()
-            ?: existing.filter { it.sport == SportType.CRICKET }
-        val footballFixtures = footballResult.getOrNull()
-            ?: existing.filter { it.sport == SportType.FOOTBALL }
+        val nowMs = System.currentTimeMillis()
+        val cricketFixtures = (cricketResult.getOrNull()
+            ?: existing.filter { it.sport == SportType.CRICKET })
+            .filter { MatchDateWindow.contains(it.startTimeEpochMs, nowMs) }
+        val footballFixtures = (footballResult.getOrNull()
+            ?: existing.filter { it.sport == SportType.FOOTBALL })
+            .filter { MatchDateWindow.contains(it.startTimeEpochMs, nowMs) }
         _fixtures.value = cricketFixtures + footballFixtures
 
         if (cricketResult.isSuccess && footballResult.isSuccess) {

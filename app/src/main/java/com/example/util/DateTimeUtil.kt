@@ -24,7 +24,7 @@ object DateTimeUtil {
 
     fun calculateStartsIn(epochMs: Long, nowMs: Long = System.currentTimeMillis()): String {
         val diffMs = epochMs - nowMs
-        if (diffMs <= 0) return "Live Now"
+        if (diffMs <= 0) return "Status update pending"
 
         val hours = diffMs / (1000 * 60 * 60)
         val days = hours / 24
