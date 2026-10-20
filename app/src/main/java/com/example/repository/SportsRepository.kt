@@ -1,5 +1,10 @@
 package com.example.repository
 
+import android.util.Log
+import com.example.BuildConfig
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.io.IOException
 import com.example.model.M3uChannel
 import com.example.model.MatchFixture
@@ -12,6 +17,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 
 interface SportsRepository {
     val fixturesFlow: Flow<List<MatchFixture>>
@@ -22,6 +28,7 @@ interface SportsRepository {
     suspend fun toggleFavorite(fixtureId: String)
     suspend fun importM3uPlaylist(source: String, isUrl: Boolean): Result<Int>
     suspend fun addCustomStream(title: String, url: String, format: StreamFormat): Result<Unit>
+    fun close()
     fun getApiConfigDocumentation(): ApiDocumentation
 }
 
@@ -44,53 +51,89 @@ class SportsRepositoryImpl : SportsRepository {
     private val _favorites = MutableStateFlow<Set<String>>(emptySet())
     override val favoritesFlow: Flow<Set<String>> = _favorites.asStateFlow()
 
-    private val _m3uChannels = MutableStateFlow<List<M3uChannel>>(emptyList())
-    override val m3uChannelsFlow: Flow<List<M3uChannel>> = _m3uChannels.asStateFlow()
+    private val _firestoreChannels = MutableStateFlow<List<M3uChannel>?>(null)
+    private val _localChannels = MutableStateFlow<List<M3uChannel>>(emptyList())
+    override val m3uChannelsFlow: Flow<List<M3uChannel>> = combine(_firestoreChannels, _localChannels) { remote, local ->
+        (remote ?: sampleChannels()) + local
+    }
+    private var firestoreChannelListener: ListenerRegistration? = null
 
     init {
-        loadSampleChannels()
+        observeFirestoreChannels()
     }
 
-    private fun loadSampleChannels() {
-        val channels = listOf(
-            M3uChannel(
-                id = "ch_1",
-                name = "Premier Sports 1 HD",
-                group = "Football",
-                streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                format = StreamFormat.HLS
-            ),
-            M3uChannel(
-                id = "ch_2",
-                name = "Live Sports 24/7",
-                group = "Sports",
-                streamUrl = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
-                format = StreamFormat.HLS
-            ),
-            M3uChannel(
-                id = "ch_3",
-                name = "Dash Sports Ultra",
-                group = "Sports",
-                streamUrl = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd",
-                format = StreamFormat.DASH
-            ),
-            M3uChannel(
-                id = "ch_4",
-                name = "International Cricket Live",
-                group = "Cricket",
-                streamUrl = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
-                format = StreamFormat.HLS
-            ),
-            M3uChannel(
-                id = "ch_5",
-                name = "Euro Football Arena",
-                group = "Football",
-                streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                format = StreamFormat.HLS
-            )
-        )
-        _m3uChannels.value = channels
+    private fun observeFirestoreChannels() {
+        val firestore = try {
+            val app = FirebaseApp.getInstance()
+            val databaseId = BuildConfig.FIRESTORE_DATABASE_ID.trim()
+            if (databaseId.isEmpty() || databaseId == "(default)") {
+                FirebaseFirestore.getInstance(app)
+            } else {
+                FirebaseFirestore.getInstance(app, databaseId)
+            }
+        } catch (error: Exception) {
+            Log.i("SportsRepository", "Firebase is not configured; showing sample channels.", error)
+            return
+        }
+
+        // Once Firebase is configured, do not keep demo channels visible while the live
+        // collection is loading. The listener below replaces this empty initial state.
+        _firestoreChannels.value = emptyList()
+        firestoreChannelListener = firestore.collection("channels")
+            .whereEqualTo("isActive", true)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.w("SportsRepository", "Could not read active channels from Firestore.", error)
+                    return@addSnapshotListener
+                }
+
+                val channels = snapshot?.documents.orEmpty()
+                    .mapNotNull { document ->
+                        document.data?.let { FirestoreChannelMapper.fromDocument(document.id, it) }
+                    }
+                    .sortedWith(compareBy<FirestoreChannelRecord> { it.sortOrder }.thenBy { it.channel.name })
+                    .map { it.channel }
+                _firestoreChannels.value = channels
+            }
     }
+
+    private fun sampleChannels(): List<M3uChannel> = listOf(
+        M3uChannel(
+            id = "ch_1",
+            name = "Premier Sports 1 HD",
+            group = "Football",
+            streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+            format = StreamFormat.HLS
+        ),
+        M3uChannel(
+            id = "ch_2",
+            name = "Live Sports 24/7",
+            group = "Sports",
+            streamUrl = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+            format = StreamFormat.HLS
+        ),
+        M3uChannel(
+            id = "ch_3",
+            name = "Dash Sports Ultra",
+            group = "Sports",
+            streamUrl = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd",
+            format = StreamFormat.DASH
+        ),
+        M3uChannel(
+            id = "ch_4",
+            name = "International Cricket Live",
+            group = "Cricket",
+            streamUrl = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
+            format = StreamFormat.HLS
+        ),
+        M3uChannel(
+            id = "ch_5",
+            name = "Euro Football Arena",
+            group = "Football",
+            streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+            format = StreamFormat.HLS
+        )
+    )
 
     override suspend fun refreshFixtures(): Result<Unit> = coroutineScope {
         val cricketRequest = async { cricketFeedClient.fetchFixtures() }
@@ -137,7 +180,7 @@ class SportsRepositoryImpl : SportsRepository {
             if (parsed.isEmpty()) {
                 Result.failure(Exception("No valid stream channels found in playlist."))
             } else {
-                _m3uChannels.value = _m3uChannels.value + parsed
+                _localChannels.value = _localChannels.value + parsed
                 Result.success(parsed.size)
             }
         } catch (e: Exception) {
@@ -162,8 +205,13 @@ class SportsRepositoryImpl : SportsRepository {
             streamUrl = url,
             format = format
         )
-        _m3uChannels.value = listOf(newChannel) + _m3uChannels.value
+        _localChannels.value = listOf(newChannel) + _localChannels.value
         return Result.success(Unit)
+    }
+
+    override fun close() {
+        firestoreChannelListener?.remove()
+        firestoreChannelListener = null
     }
 
     override fun getApiConfigDocumentation(): ApiDocumentation {

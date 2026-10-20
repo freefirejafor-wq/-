@@ -8,12 +8,21 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val firestoreDatabaseId = providers.gradleProperty("firestoreDatabaseId")
+  .orElse(providers.environmentVariable("FIRESTORE_DATABASE_ID"))
+  .orElse("(default)")
+  .get()
+val escapedFirestoreDatabaseId = firestoreDatabaseId
+  .replace("\\", "\\\\")
+  .replace("\"", "\\\"")
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
     applicationId = "com.example"
+    buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"$escapedFirestoreDatabaseId\"")
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -112,7 +121,7 @@ dependencies {
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
+  implementation(libs.firebase.firestore)
 
   // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
   // Sign-In via Credential Manager:

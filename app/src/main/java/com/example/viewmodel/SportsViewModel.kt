@@ -126,4 +126,9 @@ class SportsViewModel(
     }
 
     fun getApiDocs() = repository.getApiConfigDocumentation()
+
+    override fun onCleared() {
+        repository.close()
+        super.onCleared()
+    }
 }
