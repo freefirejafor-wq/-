@@ -394,7 +394,7 @@ fun TeamLogoBadge(
 private fun cricketScoreLabel(fixture: MatchFixture): String? {
     val first = fixture.team1Score?.let { "${fixture.team1Abbr} $it" }
     val second = fixture.team2Score?.let { "${fixture.team2Abbr} $it" }
-    return listOfNotNull(first, second).joinToString("  Ã¢ÂÂ¢  ").takeIf { it.isNotBlank() }
+    return listOfNotNull(first, second).joinToString("  •  ").takeIf { it.isNotBlank() }
 }
 
 @Composable
