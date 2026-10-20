@@ -1,5 +1,6 @@
 package com.example.repository
 
+import android.content.Context
 import java.io.IOException
 import com.example.model.M3uChannel
 import com.example.model.MatchFixture
@@ -12,6 +13,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 
 interface SportsRepository {
     val fixturesFlow: Flow<List<MatchFixture>>
@@ -22,6 +24,8 @@ interface SportsRepository {
     suspend fun toggleFavorite(fixtureId: String)
     suspend fun importM3uPlaylist(source: String, isUrl: Boolean): Result<Int>
     suspend fun addCustomStream(title: String, url: String, format: StreamFormat): Result<Unit>
+    fun reloadAdminData()
+    fun close()
     fun getApiConfigDocumentation(): ApiDocumentation
 }
 
@@ -33,64 +37,24 @@ data class ApiDocumentation(
     val backendRecommendation: String
 )
 
-class SportsRepositoryImpl : SportsRepository {
+class SportsRepositoryImpl(context: Context) : SportsRepository {
 
     private val cricketFeedClient = CricketFeedClient()
     private val footballFeedClient = FootballFeedClient()
 
+    private val _baseFixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     private val _fixtures = MutableStateFlow<List<MatchFixture>>(emptyList())
     override val fixturesFlow: Flow<List<MatchFixture>> = _fixtures.asStateFlow()
 
     private val _favorites = MutableStateFlow<Set<String>>(emptySet())
     override val favoritesFlow: Flow<Set<String>> = _favorites.asStateFlow()
 
-    private val _m3uChannels = MutableStateFlow<List<M3uChannel>>(emptyList())
-    override val m3uChannelsFlow: Flow<List<M3uChannel>> = _m3uChannels.asStateFlow()
-
-    init {
-        loadSampleChannels()
+    private val localStore = LocalSportsDataStore(context.applicationContext)
+    private val _localChannels = MutableStateFlow(localStore.loadAdminChannels())
+    override val m3uChannelsFlow: Flow<List<M3uChannel>> = _localChannels.map { channels ->
+        channels.filter { it.enabled }.sortedBy { it.displayOrder }
     }
-
-    private fun loadSampleChannels() {
-        val channels = listOf(
-            M3uChannel(
-                id = "ch_1",
-                name = "Premier Sports 1 HD",
-                group = "Football",
-                streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                format = StreamFormat.HLS
-            ),
-            M3uChannel(
-                id = "ch_2",
-                name = "Live Sports 24/7",
-                group = "Sports",
-                streamUrl = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
-                format = StreamFormat.HLS
-            ),
-            M3uChannel(
-                id = "ch_3",
-                name = "Dash Sports Ultra",
-                group = "Sports",
-                streamUrl = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd",
-                format = StreamFormat.DASH
-            ),
-            M3uChannel(
-                id = "ch_4",
-                name = "International Cricket Live",
-                group = "Cricket",
-                streamUrl = "https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8",
-                format = StreamFormat.HLS
-            ),
-            M3uChannel(
-                id = "ch_5",
-                name = "Euro Football Arena",
-                group = "Football",
-                streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                format = StreamFormat.HLS
-            )
-        )
-        _m3uChannels.value = channels
-    }
+    private val _matchOverrides = MutableStateFlow(localStore.loadMatchOverrides())
 
     override suspend fun refreshFixtures(): Result<Unit> = coroutineScope {
         val cricketRequest = async { cricketFeedClient.fetchFixtures() }
@@ -98,7 +62,7 @@ class SportsRepositoryImpl : SportsRepository {
         val cricketResult = cricketRequest.await()
         val footballResult = footballRequest.await()
 
-        val existing = _fixtures.value
+        val existing = _baseFixtures.value
         val nowMs = System.currentTimeMillis()
         val cricketFixtures = (cricketResult.getOrNull()
             ?: existing.filter { it.sport == SportType.CRICKET })
@@ -106,7 +70,9 @@ class SportsRepositoryImpl : SportsRepository {
         val footballFixtures = (footballResult.getOrNull()
             ?: existing.filter { it.sport == SportType.FOOTBALL })
             .filter { MatchDateWindow.contains(it.startTimeEpochMs, nowMs) }
-        _fixtures.value = cricketFixtures + footballFixtures
+        val baseFixtures = cricketFixtures + footballFixtures
+        _baseFixtures.value = baseFixtures
+        _fixtures.value = applyMatchOverrides(baseFixtures)
 
         if (cricketResult.isSuccess && footballResult.isSuccess) {
             Result.success(Unit)
@@ -137,7 +103,9 @@ class SportsRepositoryImpl : SportsRepository {
             if (parsed.isEmpty()) {
                 Result.failure(Exception("No valid stream channels found in playlist."))
             } else {
-                _m3uChannels.value = _m3uChannels.value + parsed
+                val updated = _localChannels.value + parsed
+                _localChannels.value = updated
+                localStore.saveChannels(updated)
                 Result.success(parsed.size)
             }
         } catch (e: Exception) {
@@ -162,8 +130,31 @@ class SportsRepositoryImpl : SportsRepository {
             streamUrl = url,
             format = format
         )
-        _m3uChannels.value = listOf(newChannel) + _m3uChannels.value
+        val updated = listOf(newChannel) + _localChannels.value
+        _localChannels.value = updated
+        localStore.saveChannels(updated)
         return Result.success(Unit)
+    }
+
+    override fun reloadAdminData() {
+        _localChannels.value = localStore.loadAdminChannels()
+        _matchOverrides.value = localStore.loadMatchOverrides()
+        _fixtures.value = applyMatchOverrides(_baseFixtures.value)
+    }
+
+    override fun close() = Unit
+
+    private fun applyMatchOverrides(fixtures: List<MatchFixture>): List<MatchFixture> {
+        val overrides = _matchOverrides.value
+        val fixtureIds = fixtures.mapTo(mutableSetOf()) { it.id }
+        val updated = fixtures.map { fixture ->
+            overrides[fixture.id]?.applyTo(fixture) ?: fixture
+        }
+        val adminCreated = overrides
+            .filter { (id, override) -> override.isManual && id !in fixtureIds }
+            .values
+            .mapNotNull { it.toFixture() }
+        return updated + adminCreated
     }
 
     override fun getApiConfigDocumentation(): ApiDocumentation {

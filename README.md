@@ -63,3 +63,15 @@ app/build/outputs/apk/debug/app-debug.apk
 - **M3U Playlist Importer**: Import and stream IPTV channels via URL or raw text with channel grouping and search.
 - **Custom Player Controls**: Aspect ratio cycling (Fit / Zoom / Fill), Picture-in-Picture (floating player), seek Â±10s, mute, full screen landscape support.
 - **Bottom Navigation**: Favourites, Sports, Live Events, Categories, and Menu.
+
+## In-app Admin Panel
+
+The Admin Panel is available from Menu → Admin Panel in the public Android APK. It supports:
+
+- Adding, editing, hiding, deleting, and ordering channels and categories.
+- Multiple named HLS (.m3u8), M3U playlist, DASH (.mpd), or direct HTTP(S) stream sources per channel or match.
+- Checking whether a stream URL responds over HTTP(S).
+- Adding a channel image by URL.
+- Editing feed matches and adding local manual matches, including score, status, Dhaka start time, and stream choices.
+
+On first use, each installation creates its own local admin password. Channel and match edits are stored only on that device; they are not shared with other users and do not require Firebase or another backend. The password is not bundled in the APK.

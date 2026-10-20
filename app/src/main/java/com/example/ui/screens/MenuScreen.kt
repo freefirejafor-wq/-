@@ -88,6 +88,7 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun MenuScreen(
     onNavigateToPlaylists: () -> Unit,
+    onOpenAdminPanel: () -> Unit,
     onPlayCustomStream: (MatchFixture, StreamSource) -> Unit,
     apiDoc: ApiDocumentation,
     onTelegramClick: () -> Unit,
@@ -204,6 +205,16 @@ fun MenuScreen(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
+                )
+            }
+
+            item {
+                MenuFeatureCard(
+                    title = "Admin Panel",
+                    icon = Icons.Default.Settings,
+                    onClick = onOpenAdminPanel,
+                    subtitle = "Manage matches, channels & streams",
+                    testTag = "menu_admin_panel"
                 )
             }
 

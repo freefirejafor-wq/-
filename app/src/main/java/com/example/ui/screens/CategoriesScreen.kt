@@ -74,7 +74,7 @@ fun CategoriesScreen(
     channels: List<M3uChannel>,
     onImportUrl: suspend (String) -> Result<Int>,
     onImportText: suspend (String) -> Result<Int>,
-    onPlayChannel: (MatchFixture, StreamSource) -> Unit,
+    onPlayChannel: (MatchFixture) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedGroup by remember { mutableStateOf("All") }
@@ -93,7 +93,7 @@ fun CategoriesScreen(
     }
 
     val filteredChannels = remember(channels, selectedGroup, searchQuery) {
-        channels.filter { ch ->
+        channels.sortedBy { it.displayOrder }.filter { ch ->
             val matchesGroup = (selectedGroup == "All") || (ch.group.equals(selectedGroup, ignoreCase = true))
             val matchesQuery = searchQuery.isBlank() || ch.name.contains(searchQuery, ignoreCase = true)
             matchesGroup && matchesQuery
@@ -239,6 +239,17 @@ fun CategoriesScreen(
                     ChannelListItem(
                         channel = channel,
                         onPlayClick = {
+                            val channelStreams = channel.streams.ifEmpty {
+                                listOf(
+                                    StreamSource(
+                                        id = "src_${channel.id}",
+                                        name = channel.name,
+                                        qualityLabel = if (channel.streamUrl.contains(".mpd", ignoreCase = true)) "DASH" else "HLS",
+                                        streamUrl = channel.streamUrl,
+                                        format = channel.format
+                                    )
+                                )
+                            }
                             val tempFixture = MatchFixture(
                                 id = "channel_${channel.id}",
                                 title = channel.name,
@@ -251,18 +262,10 @@ fun CategoriesScreen(
                                 startTimeEpochMs = System.currentTimeMillis(),
                                 status = MatchStatus.LIVE,
                                 liveCounter = "Broadcasting",
-                                streams = listOf(
-                                    StreamSource(
-                                        id = "src_${channel.id}",
-                                        name = channel.name,
-                                        qualityLabel = if (channel.streamUrl.contains(".mpd")) "DASH" else "HLS",
-                                        streamUrl = channel.streamUrl,
-                                        format = channel.format
-                                    )
-                                ),
+                                streams = channelStreams,
                                 isDemo = false
                             )
-                            onPlayChannel(tempFixture, tempFixture.streams.first())
+                            onPlayChannel(tempFixture)
                         }
                     )
                 }
